@@ -1368,7 +1368,7 @@ window.setModoAluno=function(modo){
   if(modo==='banco')popularSeriesSel();
 };
 function popularSeriesSel(){
-  var alunos=window._alunos||[];var sel=document.getElementById('f-serie-sel');if(!sel)return;
+  var alunos=filtrarPorTurmaProf(window._alunos||[]);var sel=document.getElementById('f-serie-sel');if(!sel)return;
   var seriesUnicas=[...new Set(alunos.map(function(a){return a.serie||'';}).filter(Boolean))].sort();
   var lblMin=(window._terminologia==='serie')?'série':'ano';
   sel.innerHTML='<option value="">— Selecione o '+lblMin+' —</option>'+
@@ -1383,7 +1383,7 @@ window.popularTurmasSel=function(){
   var pT=document.getElementById('banco-passo-turma');var pA=document.getElementById('banco-passo-aluno');
   pT.style.display='none';pA.style.display='none';document.getElementById('f-turma').value='';
   if(!serie)return;
-  var turmasUnicas=[...new Set((window._alunos||[]).filter(function(a){return a.serie===serie;}).map(function(a){return a.turma||'';}).filter(Boolean))].sort();
+  var turmasUnicas=[...new Set(filtrarPorTurmaProf(window._alunos||[]).filter(function(a){return a.serie===serie;}).map(function(a){return a.turma||'';}).filter(Boolean))].sort();
   document.getElementById('f-turma-sel').innerHTML='<option value="">— Selecione a turma —</option>'+
     turmasUnicas.map(function(t){return'<option value="'+he(t)+'">Turma '+he(t)+'</option>';}).join('');
   pT.style.display='';
@@ -1392,7 +1392,7 @@ window.popularAlunosSel=function(){
   var serie=document.getElementById('f-serie-sel').value;var turma=document.getElementById('f-turma-sel').value;
   var pA=document.getElementById('banco-passo-aluno');pA.style.display='none';document.getElementById('f-turma').value='';
   if(!turma)return;
-  var alunos=(window._alunos||[]).filter(function(a){return a.serie===serie&&a.turma===turma;});
+  var alunos=filtrarPorTurmaProf(window._alunos||[]).filter(function(a){return a.serie===serie&&a.turma===turma;});
   var selA=document.getElementById('f-aluno-sel');
   // Guarda série também no value: nome|turma|serie
   selA.innerHTML='<option value="">— Selecione o aluno —</option>'+
