@@ -365,7 +365,20 @@ html[data-tema="black"] .toast{background:#222;}
     <div class="form-group"><label>Senha</label><div class="senha-wrap"><input type="password" id="login-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')fazerLoginApp()"><button class="btn-olho" onclick="toggleOlho('login-senha','olho-login')" id="olho-login">👁️</button></div></div>
     <div class="erro-msg" id="login-erro"></div>
     <div class="login-loading" id="login-loading-tela"><div class="spinner" style="width:18px;height:18px;border-width:2px;display:inline-block"></div> Verificando...</div>
-    <button class="btn-salvar" style="margin-top:4px;" onclick="fazerLoginApp()">Entrar</button>
+        <button class="btn-salvar" style="margin-top:4px;" onclick="fazerLoginApp()">Entrar</button>
+  </div>
+</div>
+
+<div class="tela-login" id="tela-redefinir">
+  <div class="tela-login-card">
+    <div class="tela-login-logo">🔑</div>
+    <div class="tela-login-titulo">Definir Senha</div>
+    <div class="tela-login-sub" id="redefinir-email-info">Crie sua nova senha de acesso</div>
+    <div class="form-group"><label>Nova senha</label><div class="senha-wrap"><input type="password" id="redefinir-senha1" placeholder="Mínimo 6 caracteres"><button class="btn-olho" onclick="toggleOlho('redefinir-senha1','olho-red1')" id="olho-red1">👁️</button></div></div>
+    <div class="form-group"><label>Confirmar senha</label><div class="senha-wrap"><input type="password" id="redefinir-senha2" placeholder="Repita a senha" onkeydown="if(event.key==='Enter')confirmarRedefinicaoSenha()"><button class="btn-olho" onclick="toggleOlho('redefinir-senha2','olho-red2')" id="olho-red2">👁️</button></div></div>
+    <div class="erro-msg" id="redefinir-erro"></div>
+    <div class="sucesso-msg" id="redefinir-sucesso"></div>
+    <button class="btn-salvar" style="margin-top:4px;" onclick="confirmarRedefinicaoSenha()">Salvar Nova Senha</button>
   </div>
 </div>
 
@@ -594,24 +607,15 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
-      <div class="accordion-item" id="acc-admin">
+           <div class="accordion-item" id="acc-admin">
         <div class="accordion-header" onclick="toggleAccordion('acc-admin')">
-          <div class="accordion-header-left"><div class="accordion-icon">🔐</div><div><div class="accordion-title">Acesso Admin</div><div class="accordion-desc" id="acc-admin-desc">Entre com e-mail e senha de administrador</div></div></div>
+          <div class="accordion-header-left"><div class="accordion-icon">👤</div><div><div class="accordion-title">Minha Conta</div><div class="accordion-desc" id="acc-admin-desc">—</div></div></div>
           <div class="accordion-chevron">▼</div>
         </div>
         <div class="accordion-divider"></div>
         <div class="accordion-body">
-          <div id="config-admin-deslogado" style="margin-top:4px;">
-            <div class="form-group"><label>E-mail</label><input type="email" id="cfg-email" placeholder="admin@exemplo.com" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('cfg-senha').focus()"></div>
-            <div class="form-group"><label>Senha</label><div class="senha-wrap"><input type="password" id="cfg-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')fazerLoginConfig()"><button class="btn-olho" onclick="toggleOlho('cfg-senha','olho-cfg')" id="olho-cfg">👁️</button></div></div>
-            <div class="erro-msg" id="cfg-login-erro"></div>
-            <div class="login-loading" id="cfg-login-loading"><div class="spinner" style="width:18px;height:18px;border-width:2px;display:inline-block"></div> Verificando...</div>
-            <button class="btn-salvar" style="margin-top:4px;" onclick="fazerLoginConfig()">Entrar</button>
-          </div>
-          <div id="config-admin-logado" style="display:none;margin-top:4px;">
-            <div class="admin-logado-badge">🔴 Admin: <span id="cfg-admin-nome">—</span></div>
-            <button class="btn-salvar btn-vermelho" style="font-size:12px;padding:10px;" onclick="sairAdminConfig()">Sair do modo admin</button>
-          </div>
+          <div class="admin-logado-badge" style="margin-top:4px;">👤 <span id="cfg-admin-nome">—</span></div>
+          <button class="btn-salvar btn-vermelho" style="font-size:12px;padding:10px;" onclick="sairAdminConfig()">Sair da conta</button>
         </div>
       </div>
 
@@ -837,7 +841,7 @@ html[data-tema="black"] .toast{background:#222;}
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 import{getDatabase,ref,push,update,remove,onValue,get}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
-import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword,createUserWithEmailAndPassword,sendPasswordResetEmail}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword,createUserWithEmailAndPassword,sendPasswordResetEmail,confirmPasswordReset,verifyPasswordResetCode}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDoPFwn-5YHuDUVuYoLjC1NH84eQLSQ6AA",
@@ -901,6 +905,36 @@ window.selecionarTerminologia=function(t){
   mostrarToast('✓ Terminologia salva: '+(t==='serie'?'Série':'Ano'));
 };
 
+// ═══ REDEFINIR SENHA (LINK DO E-MAIL) ═══
+var _urlParams=new URLSearchParams(window.location.search);
+window._modoRedefinirSenha=(_urlParams.get('mode')==='resetPassword'&&!!_urlParams.get('oobCode'));
+if(window._modoRedefinirSenha){
+  window._oobCodeRedefinir=_urlParams.get('oobCode');
+  document.getElementById('tela-login').classList.remove('show');
+  document.getElementById('tela-redefinir').classList.add('show');
+  verifyPasswordResetCode(auth,window._oobCodeRedefinir).then(function(email){
+    document.getElementById('redefinir-email-info').textContent='Definindo senha para: '+email;
+  }).catch(function(){
+    document.getElementById('redefinir-erro').textContent='❌ Link inválido ou expirado. Peça um novo link ao admin.';
+    document.getElementById('redefinir-erro').classList.add('show');
+  });
+}
+window.confirmarRedefinicaoSenha=async function(){
+  var s1=document.getElementById('redefinir-senha1').value;var s2=document.getElementById('redefinir-senha2').value;
+  var erEl=document.getElementById('redefinir-erro');var suEl=document.getElementById('redefinir-sucesso');
+  erEl.classList.remove('show');suEl.classList.remove('show');
+  if(!s1||!s2){erEl.textContent='❌ Preencha os dois campos.';erEl.classList.add('show');return;}
+  if(s1.length<6){erEl.textContent='❌ Mínimo 6 caracteres.';erEl.classList.add('show');return;}
+  if(s1!==s2){erEl.textContent='❌ As senhas não coincidem.';erEl.classList.add('show');return;}
+  try{
+    await confirmPasswordReset(auth,window._oobCodeRedefinir,s1);
+    suEl.textContent='✅ Senha definida! Redirecionando para o login...';suEl.classList.add('show');
+    setTimeout(function(){window.location.href=window.location.origin+window.location.pathname;},2000);
+  }catch(e){
+    erEl.textContent='❌ Link inválido ou expirado. Peça um novo link ao admin.';erEl.classList.add('show');
+  }
+};
+
 // ═══ AUTH ═══
 window._papelUsuario='';
 onAuthStateChanged(auth,async function(user){
@@ -912,15 +946,74 @@ onAuthStateChanged(auth,async function(user){
       var papel=snap.exists()?snap.val():'';
       window._papelUsuario=papel;
       window._adminAtivo=(papel==='admin');
+      iniciarListenerCabecalho();
     }catch(e){
       window._papelUsuario='';window._adminAtivo=false;
     }
   }else{
     window._adminAtivo=false;window._adminUsuario='';window._papelUsuario='';
-    document.getElementById('tela-login').classList.add('show');
+    if(!window._modoRedefinirSenha)document.getElementById('tela-login').classList.add('show');
   }
   renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
 });
+function iniciarListenerCabecalho(){
+  if(window._listenerCabecalhoAtivo)return;window._listenerCabecalhoAtivo=true;
+  onValue(ref(db,'admin_config/nome_instituicao'),function(snap){
+    var n=snap.val()||'CETI Dariana';document.getElementById('header-nome-inst').textContent=n;document.title=n;
+  });
+  onValue(ref(db,'admin_config/icone_logo'),function(snap){
+    var ic=snap.val()||'🏫';document.getElementById('icone-logo').textContent=ic;window._iconeAtual=ic;
+    document.querySelectorAll('.emoji-op').forEach(function(el){el.classList.toggle('selecionado',el.dataset.emoji===ic);});
+  });
+  onValue(ref(db,'admin_config/numero_suporte'),function(snap){
+    var num=snap.val()||'92994810508';window._numeroSuporte=num;
+    var d=num.replace(/\D/g,'');var fmt=d;
+    if(d.length===11)fmt='('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+    else if(d.length===10)fmt='('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+    var el=document.getElementById('banner-numero-display');if(el)el.textContent=fmt;
+    var inp=document.getElementById('p-numero-suporte');if(inp&&document.activeElement!==inp)inp.value=d;
+  });
+  onValue(evRef,function(snap){
+    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+    window._eventos=l;renderCalendario();if(window._diaSel)renderOcsDia(window._diaSel);
+  });
+  onValue(ocRef,function(snap){
+    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+    l.reverse();window._ocs=l;renderLista();renderCalendario();renderChart();
+  });
+  onValue(turmasRef,function(snap){
+    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+    l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.nome||'').localeCompare(b.nome||'');});
+    window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();
+  });
+  onValue(alunosRef,function(snap){
+    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+    l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.turma||'').localeCompare(b.turma||'')||(a.nome||'').localeCompare(b.nome||'');});
+    window._alunos=l;renderAlunosConfig();popularSeriesSel();
+  });
+  onValue(professoresRef,function(snap){
+    var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—'});});
+    window._professores=lista;renderProfessoresConfig();
+  });
+  onValue(ref(db,'admin_config/categorias_ocorrencia'),function(snap){
+    var val=snap.val();
+    if(val&&typeof val==='object'){
+      var l=[];Object.keys(val).forEach(function(k){l.push({firebaseKey:k,nome:val[k].nome,ordem:val[k].ordem??999});});
+      l.sort(function(a,b){return a.ordem-b.ordem;});
+      window._categorias=l;
+      var nomesSalvos=l.map(function(c){return c.nome.toLowerCase();});
+      var faltam=CATS_PADRAO.filter(function(n){return nomesSalvos.indexOf(n.toLowerCase())===-1;});
+      if(faltam.length>0&&window._adminAtivo){
+        migrarCategoriasPadrao(faltam,l.length);
+      }
+    }else{
+      window._categorias=[];
+      if(window._adminAtivo)migrarCategoriasPadrao(CATS_PADRAO,0);
+    }
+    renderCategoriasConfig();
+    popularSelectsTipo();
+  });
+}
 window.fazerLoginApp=async function(){
   var email=document.getElementById('login-email').value.trim();var senha=document.getElementById('login-senha').value;
   var erEl=document.getElementById('login-erro');var ldEl=document.getElementById('login-loading-tela');
@@ -939,30 +1032,10 @@ window.fazerLoginApp=async function(){
     else if(e.code==='auth/network-request-failed')msg='❌ Sem conexão.';
     erEl.textContent=msg;erEl.classList.add('show');document.getElementById('login-senha').value='';
   }
-  ldEl.classList.remove('show');
+   ldEl.classList.remove('show');
 };
-onValue(ref(db,'admin_config/nome_instituicao'),function(snap){
-  var n=snap.val()||'CETI Dariana';document.getElementById('header-nome-inst').textContent=n;document.title=n;
-});
-onValue(ref(db,'admin_config/icone_logo'),function(snap){
-  var ic=snap.val()||'🏫';document.getElementById('icone-logo').textContent=ic;window._iconeAtual=ic;
-  document.querySelectorAll('.emoji-op').forEach(function(el){el.classList.toggle('selecionado',el.dataset.emoji===ic);});
-});
-onValue(evRef,function(snap){
-  var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-  window._eventos=l;renderCalendario();if(window._diaSel)renderOcsDia(window._diaSel);
-});
-onValue(ocRef,function(snap){
-  var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-  l.reverse();window._ocs=l;renderLista();renderCalendario();renderChart();
-});
 
 // ═══ BANCO DE TURMAS ═══
-onValue(turmasRef,function(snap){
-  var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-  l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.nome||'').localeCompare(b.nome||'');});
-  window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();
-});
 window.salvarTurma=async function(){
   var sRaw=(document.getElementById('cfg-turma-serie').value||'').trim();
   var nome=(document.getElementById('cfg-turma-nome').value||'').trim().toUpperCase();
@@ -1000,7 +1073,7 @@ window.salvarProfessor=async function(){
     await signOut(secondaryAuth);
     await update(ref(db,'roles'),{[uid]:'professor'});
     await update(ref(db,'professores'),{[uid]:{email:email,criadoEm:Date.now()}});
-    await sendPasswordResetEmail(auth,email);
+    await sendPasswordResetEmail(auth,email,{url:window.location.origin+window.location.pathname,handleCodeInApp:true});
     document.getElementById('cfg-prof-email').value='';
     suEl.textContent='✅ Professor adicionado! Um e-mail foi enviado para definir a senha.';suEl.classList.add('show');
     setTimeout(function(){suEl.classList.remove('show');},4000);
@@ -1012,12 +1085,8 @@ window.salvarProfessor=async function(){
     else msg='❌ '+e.message;
     erEl.textContent=msg;erEl.classList.add('show');
   }
-  if(btn){btn.disabled=false;btn.textContent='+ Adicionar Professor';}
+    if(btn){btn.disabled=false;btn.textContent='+ Adicionar Professor';}
 };
-onValue(professoresRef,function(snap){
-  var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—'});});
-  window._professores=lista;renderProfessoresConfig();
-});
 function renderProfessoresConfig(){
   var lista=window._professores||[];var c=document.getElementById('professores-lista-config');if(!c)return;
   var desc=document.getElementById('acc-professores-desc');
@@ -1102,11 +1171,6 @@ window.filtrarTurmasPorSerie=function(){
 };
 
 // ═══ BANCO DE ALUNOS ═══
-onValue(alunosRef,function(snap){
-  var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-  l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.turma||'').localeCompare(b.turma||'')||(a.nome||'').localeCompare(b.nome||'');});
-  window._alunos=l;renderAlunosConfig();popularSeriesSel();
-});
 window.salvarAluno=async function(){
   var nome=(document.getElementById('cfg-aluno-nome').value||'').trim();
   var serieRaw=(document.getElementById('cfg-aluno-serie').value||'').trim();
@@ -1245,14 +1309,6 @@ window.setFiltroStatus=function(filtro){
 };
 
 // ═══ SUPORTE ═══
-onValue(ref(db,'admin_config/numero_suporte'),function(snap){
-  var num=snap.val()||'92994810508';window._numeroSuporte=num;
-  var d=num.replace(/\D/g,'');var fmt=d;
-  if(d.length===11)fmt='('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
-  else if(d.length===10)fmt='('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
-  var el=document.getElementById('banner-numero-display');if(el)el.textContent=fmt;
-  var inp=document.getElementById('p-numero-suporte');if(inp&&document.activeElement!==inp)inp.value=d;
-});
 window.abrirSuporte=function(e){
   e.preventDefault();var num=(window._numeroSuporte||'92994810508').replace(/\D/g,'');
   window.open('https://wa.me/55'+num,'_blank');
@@ -1356,12 +1412,10 @@ function mostrarViewSemTabs(id){
 // ═══ LOGIN/AUTH UI ═══
 function atualizarUiAdminConfig(){
   var logado=window._adminAtivo;
-  document.getElementById('config-admin-deslogado').style.display=logado?'none':'block';
-  document.getElementById('config-admin-logado').style.display=logado?'block':'none';
-  document.getElementById('acc-admin-desc').textContent=logado?('Admin: '+(window._adminUsuario||'—')):'Entre com e-mail e senha de administrador';
+  document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
+  document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
   ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
   if(logado){
-    document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
     document.getElementById('p-nome-inst').value=nAtual==='Minha Instituição'?'':nAtual;
@@ -1370,27 +1424,8 @@ function atualizarUiAdminConfig(){
   if(logado)document.getElementById('admin-user-badge').textContent=window._adminUsuario||'—';
   renderAlunosConfig();renderTurmasConfig();
 }
-window.fazerLoginConfig=async function(){
-  var email=document.getElementById('cfg-email').value.trim();var senha=document.getElementById('cfg-senha').value;
-  var erEl=document.getElementById('cfg-login-erro');var ldEl=document.getElementById('cfg-login-loading');
-  if(!email||!senha){erEl.textContent='❌ Preencha e-mail e senha.';erEl.classList.add('show');return;}
-  erEl.classList.remove('show');ldEl.classList.add('show');
-  try{
-    const cred=await signInWithEmailAndPassword(auth,email,senha);
-    document.getElementById('cfg-email').value='';document.getElementById('cfg-senha').value='';mostrarToast('✓ Bem-vindo, '+cred.user.email+'!');
-  }catch(e){
-    var msg='❌ E-mail ou senha incorretos.';
-    if(e.code==='auth/user-not-found')msg='❌ Usuário não encontrado.';
-    else if(e.code==='auth/wrong-password')msg='❌ Senha incorreta.';
-    else if(e.code==='auth/invalid-email')msg='❌ E-mail inválido.';
-    else if(e.code==='auth/too-many-requests')msg='❌ Muitas tentativas.';
-    else if(e.code==='auth/network-request-failed')msg='❌ Sem conexão.';
-    erEl.textContent=msg;erEl.classList.add('show');document.getElementById('cfg-senha').value='';
-  }
-  ldEl.classList.remove('show');
-};
 window.sairAdminConfig=async function(){
-  try{await signOut(auth);mostrarToast('Modo admin desativado');document.getElementById('acc-admin').classList.remove('open');}
+  try{await signOut(auth);mostrarToast('Você saiu da conta');document.getElementById('acc-admin').classList.remove('open');}
   catch(e){mostrarToast('Erro ao sair: '+e.message);}
 };
 window.alterarSenha=async function(){
@@ -1877,29 +1912,9 @@ function renderChart(){
   });
 }
 
-  // ═══ CATEGORIAS DE OCORRÊNCIA ═══
+   // ═══ CATEGORIAS DE OCORRÊNCIA ═══
 var CATS_PADRAO=['Agressão verbal','Agressão física','Uso de celular','Desrespeito ao professor','Bagunça em sala','Bullying','Vandalismo','Faltou à aula (Gazetou)','Outros'];
 window._categorias=[];
-
-onValue(ref(db,'admin_config/categorias_ocorrencia'),function(snap){
-  var val=snap.val();
-  if(val&&typeof val==='object'){
-    var l=[];Object.keys(val).forEach(function(k){l.push({firebaseKey:k,nome:val[k].nome,ordem:val[k].ordem??999});});
-    l.sort(function(a,b){return a.ordem-b.ordem;});
-    window._categorias=l;
-    // verifica se padrões já foram migradas
-    var nomesSalvos=l.map(function(c){return c.nome.toLowerCase();});
-    var faltam=CATS_PADRAO.filter(function(n){return nomesSalvos.indexOf(n.toLowerCase())===-1;});
-    if(faltam.length>0&&window._adminAtivo){
-      migrarCategoriasPadrao(faltam,l.length);
-    }
-  }else{
-    window._categorias=[];
-    if(window._adminAtivo)migrarCategoriasPadrao(CATS_PADRAO,0);
-  }
-  renderCategoriasConfig();
-  popularSelectsTipo();
-});
 
   async function migrarCategoriasPadrao(lista,ordemInicial){
   for(var i=0;i<lista.length;i++){
