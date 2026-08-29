@@ -654,8 +654,9 @@ html[data-tema="black"] .toast{background:#222;}
           <div style="margin-top:4px;">
             <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Professor</div>
                         <div class="form-group"><label>E-mail do professor *</label><input type="email" id="cfg-prof-email" placeholder="professor@email.com" autocomplete="off"></div>
-            <div class="form-group"><label>Turmas responsável (opcional)</label><input type="text" id="cfg-prof-turmas" placeholder="Ex: 6A, 6B, 7A" autocomplete="off"></div>
-            <p style="font-size:10px;color:var(--sub);margin:-4px 0 4px;line-height:1.4;">Deixe em branco para o professor ver todas as turmas. Preenchendo, ele só verá ocorrências das turmas listadas.</p>
+                       <div class="form-group"><label>Turmas responsável (opcional)</label></div>
+            <div id="cfg-prof-turmas-list" style="display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 4px;"></div>
+            <p style="font-size:10px;color:var(--sub);margin:-4px 0 4px;line-height:1.4;">Deixe todas desmarcadas para o professor ver todas as turmas. Marque turmas específicas para restringir o acesso.</p>
             <div class="erro-msg" id="erro-prof"></div>
             <div class="sucesso-msg" id="sucesso-prof"></div>
             <button class="btn-salvar" style="font-size:12px;padding:10px;margin-bottom:16px;" onclick="salvarProfessor()">+ Adicionar Professor</button>
@@ -902,6 +903,28 @@ const secondaryAuth=getAuth(secondaryApp);
 
 window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';
 function he(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function turmaCheckboxesHtml(prefix,selecionadas){
+  var turmas=window._turmas||[];
+  if(!turmas.length)return '<div class="alunos-vazio">Nenhuma turma cadastrada. Cadastre turmas em "Banco de Turmas" primeiro.</div>';
+  var sel=selecionadas||[];var series={};
+  turmas.forEach(function(tu){var s=tu.serie||'—';if(!series[s])series[s]=[];series[s].push(tu);});
+  var html='';
+  Object.keys(series).sort().forEach(function(s){
+    series[s].forEach(function(tu){
+      var val=tu.serie+'|'+tu.nome;var checked=sel.indexOf(val)!==-1?' checked':'';
+      html+='<label style="display:flex;align-items:center;gap:5px;background:var(--cinza);border:1.5px solid var(--borda);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--sub);cursor:pointer;">'+
+        '<input type="checkbox" class="'+prefix+'-chk" value="'+he(val)+'"'+checked+' style="margin:0;width:auto;">'+he(s)+' · '+he(tu.nome)+'</label>';
+    });
+  });
+  return html;
+}
+function getCheckedTurmas(prefix){
+  return Array.prototype.slice.call(document.querySelectorAll('.'+prefix+'-chk:checked')).map(function(el){return el.value;});
+}
+function renderAddProfTurmasCheckboxes(){
+  var c=document.getElementById('cfg-prof-turmas-list');if(!c)return;
+  c.innerHTML=turmaCheckboxesHtml('cfg-prof-turmas',[]);
+}
 function registrarLog(acao,detalhes){
   push(logRef,{usuario:window._adminUsuario||'—',papel:window._papelUsuario||'—',acao,detalhes,timestamp:Date.now()}).catch(function(){});
 }
@@ -1043,10 +1066,10 @@ function iniciarListenerCabecalho(){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.reverse();window._ocs=l;renderLista();renderCalendario();renderChart();
   });
-  onValue(turmasRef,function(snap){
+    onValue(turmasRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.nome||'').localeCompare(b.nome||'');});
-    window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();
+    window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();renderAddProfTurmasCheckboxes();renderProfessoresConfig();
   });
   onValue(alunosRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
@@ -1114,7 +1137,11 @@ window.salvarTurma=async function(){
   if((window._turmas||[]).some(function(tu){return tu.serie===serie&&tu.nome===nome;})){erEl.textContent='❌ Esta turma já está cadastrada.';erEl.classList.add('show');return;}
   var btn=document.querySelector('#acc-turmas .btn-salvar');if(btn){btn.disabled=true;btn.textContent='Salvando...';}
   try{
-    await push(turmasRef,{serie,nome,timestamp:Date.now()});
+    var novoTs=Date.now();var newRef=push(turmasRef);
+    await update(newRef,{serie,nome,timestamp:novoTs});
+    window._turmas=(window._turmas||[]).concat([{firebaseKey:newRef.key,serie,nome,timestamp:novoTs}])
+      .sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.nome||'').localeCompare(b.nome||'');});
+    renderTurmasConfig();popularTurmasSelectAluno();renderAddProfTurmasCheckboxes();renderProfessoresConfig();
     document.getElementById('cfg-turma-serie').value='';document.getElementById('cfg-turma-nome').value='';
     suEl.textContent='✅ Turma adicionada!';suEl.classList.add('show');setTimeout(function(){suEl.classList.remove('show');},2500);
     mostrarToast('✓ Turma '+serie+' '+nome+' cadastrada!');
@@ -1128,8 +1155,7 @@ window.pedirExclusaoTurma=function(key){
 };
 window.salvarProfessor=async function(){
   var email=(document.getElementById('cfg-prof-email').value||'').trim();
-  var turmasRaw=(document.getElementById('cfg-prof-turmas').value||'').trim();
-  var turmas=turmasRaw?turmasRaw.split(',').map(function(t){return t.trim().toUpperCase();}).filter(Boolean):[];
+  var turmas=getCheckedTurmas('cfg-prof-turmas');
   var erEl=document.getElementById('erro-prof');var suEl=document.getElementById('sucesso-prof');
   erEl.classList.remove('show');suEl.classList.remove('show');
   if(!email){erEl.textContent='❌ Informe o e-mail do professor.';erEl.classList.add('show');return;}
@@ -1142,7 +1168,7 @@ window.salvarProfessor=async function(){
     await update(ref(db,'roles'),{[uid]:'professor'});
     await update(ref(db,'professores'),{[uid]:{email:email,turmas:turmas,criadoEm:Date.now()}});
     await sendPasswordResetEmail(auth,email,{url:window.location.origin+window.location.pathname,handleCodeInApp:true});
-    document.getElementById('cfg-prof-email').value='';document.getElementById('cfg-prof-turmas').value='';
+    document.getElementById('cfg-prof-email').value='';renderAddProfTurmasCheckboxes();
     suEl.textContent='✅ Professor adicionado! Um e-mail foi enviado para definir a senha.';suEl.classList.add('show');
     setTimeout(function(){suEl.classList.remove('show');},4000);
     mostrarToast('✓ Professor cadastrado!');
@@ -1159,9 +1185,7 @@ window.editarTurmasProfessor=function(uid){
   var f=document.querySelector('[data-prof-turmas-key="'+uid+'"]');if(f)f.classList.toggle('aberto');
 };
 window.salvarTurmasProfessor=async function(uid){
-  var inp=document.getElementById('prof-turmas-edit-'+uid);if(!inp)return;
-  var turmasRaw=(inp.value||'').trim();
-  var turmas=turmasRaw?turmasRaw.split(',').map(function(t){return t.trim().toUpperCase();}).filter(Boolean):[];
+  var turmas=getCheckedTurmas('ptc-'+uid);
   try{await update(ref(db,'professores/'+uid),{turmas:turmas});mostrarToast('✓ Turmas atualizadas!');}
   catch(e){mostrarToast('❌ Erro: '+e.message);}
 };
@@ -1171,9 +1195,9 @@ function renderProfessoresConfig(){
   if(desc)desc.textContent=lista.length?lista.length+' professor(es) com acesso':'Adicione ou remova o acesso dos professores';
   if(!lista.length){c.innerHTML='<div class="alunos-vazio">Nenhum professor cadastrado</div>';return;}
   c.innerHTML=lista.map(function(p){
-    var turmasTxt=(p.turmas&&p.turmas.length)?p.turmas.join(', '):'Todas as turmas';
+    var turmasTxt=(p.turmas&&p.turmas.length)?p.turmas.map(function(t){return String(t).split('|').join(' · ');}).join(', '):'Todas as turmas';
     return'<div class="aluno-config-item"><div class="aluno-config-main"><div><div class="aluno-config-nome">'+he(p.email)+'</div><div class="aluno-config-sub">Turmas: '+he(turmasTxt)+'</div></div><div class="aluno-config-acoes"><button class="btn-editar-aluno" onclick="editarTurmasProfessor(\''+p.uid+'\')">✏️ Turmas</button><button class="btn-del-aluno" onclick="pedirExclusaoProfessor(\''+p.uid+'\')" title="Remover acesso">✕</button></div></div>'+
-      '<div class="aluno-config-edit-form" data-prof-turmas-key="'+p.uid+'"><div class="aluno-edit-row"><input class="aluno-edit-input" id="prof-turmas-edit-'+p.uid+'" type="text" value="'+he((p.turmas||[]).join(', '))+'" placeholder="Ex: 6A, 6B" style="grid-column:1/-1"></div><div class="aluno-edit-btns"><button class="btn-cancelar-aluno-edit" onclick="editarTurmasProfessor(\''+p.uid+'\')">Cancelar</button><button class="btn-salvar-aluno-edit" onclick="salvarTurmasProfessor(\''+p.uid+'\')">💾 Salvar</button></div></div>'+
+      '<div class="aluno-config-edit-form" data-prof-turmas-key="'+p.uid+'"><div id="prof-turmas-edit-list-'+p.uid+'" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'+turmaCheckboxesHtml('ptc-'+p.uid,p.turmas||[])+'</div><div class="aluno-edit-btns"><button class="btn-cancelar-aluno-edit" onclick="editarTurmasProfessor(\''+p.uid+'\')">Cancelar</button><button class="btn-salvar-aluno-edit" onclick="salvarTurmasProfessor(\''+p.uid+'\')">💾 Salvar</button></div></div>'+
     '</div>';
   }).join('');
 }
@@ -1496,10 +1520,11 @@ function atualizarUiAdminConfig(){
   document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
   document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
   ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-lgpd','acc-log'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
-  if(logado){
+   if(logado){
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
     document.getElementById('p-nome-inst').value=nAtual==='Minha Instituição'?'':nAtual;
+    renderAddProfTurmasCheckboxes();
   }
   document.getElementById('admin-banner').classList.toggle('show',logado);
   if(logado)document.getElementById('admin-user-badge').textContent=window._adminUsuario||'—';
@@ -1609,8 +1634,11 @@ function filtrarPorTurmaProf(lista){
   if(window._adminAtivo)return lista;
   var turmas=window._turmasProfessor;
   if(!turmas||!turmas.length)return lista;
-  var turmasUp=turmas.map(function(t){return String(t).toUpperCase();});
-  return lista.filter(function(o){return turmasUp.indexOf(String(o.turma||'').toUpperCase())!==-1;});
+  var set={};turmas.forEach(function(t){set[String(t).toUpperCase()]=true;});
+  return lista.filter(function(o){
+    var key=(String(o.serie||'')+'|'+String(o.turma||'')).toUpperCase();
+    return !!set[key];
+  });
 }
 window.renderLista=function(){
   var filaLocal=lerFila();var ocs=window._ocs||[];
