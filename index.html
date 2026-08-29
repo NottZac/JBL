@@ -343,10 +343,31 @@ html[data-tema="black"] .toast{background:#222;}
 .banner-suporte:hover{border-color:#25D366;}
 .banner-suporte-dev{font-size:11px;color:var(--sub);font-weight:500;text-align:center;line-height:1.4;}
 .banner-suporte-wa{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#25D366;}
+/* TELA DE LOGIN */
+.tela-login{display:none;position:fixed;inset:0;background:var(--bg-page);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.tela-login.show{display:flex;}
+.tela-login-card{width:100%;max-width:360px;background:var(--bg-card);border-radius:var(--radius);padding:28px 22px;border:1px solid var(--borda);text-align:center;}
+.tela-login-logo{font-size:38px;margin-bottom:8px;}
+.tela-login-titulo{font-size:20px;font-weight:700;color:var(--texto);}
+.tela-login-sub{font-size:12px;color:var(--sub);margin:4px 0 20px;}
+.tela-login-card .form-group{text-align:left;}
 </style>
 </head>
 <body>
 <div id="app-root">
+
+<div class="tela-login show" id="tela-login">
+  <div class="tela-login-card">
+    <div class="tela-login-logo">🏫</div>
+    <div class="tela-login-titulo">CETI</div>
+    <div class="tela-login-sub">Entre com seu e-mail e senha</div>
+    <div class="form-group"><label>E-mail</label><input type="email" id="login-email" placeholder="seuemail@escola.com" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()"></div>
+    <div class="form-group"><label>Senha</label><div class="senha-wrap"><input type="password" id="login-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')fazerLoginApp()"><button class="btn-olho" onclick="toggleOlho('login-senha','olho-login')" id="olho-login">👁️</button></div></div>
+    <div class="erro-msg" id="login-erro"></div>
+    <div class="login-loading" id="login-loading-tela"><div class="spinner" style="width:18px;height:18px;border-width:2px;display:inline-block"></div> Verificando...</div>
+    <button class="btn-salvar" style="margin-top:4px;" onclick="fazerLoginApp()">Entrar</button>
+  </div>
+</div>
 
 <div class="header">
   <div class="header-left">
@@ -859,10 +880,35 @@ window.selecionarTerminologia=function(t){
 
 // ═══ AUTH ═══
 onAuthStateChanged(auth,function(user){
-  if(user){window._adminAtivo=true;window._adminUsuario=user.email;}
-  else{window._adminAtivo=false;window._adminUsuario='';}
+  if(user){
+    window._adminAtivo=true;window._adminUsuario=user.email;
+    document.getElementById('tela-login').classList.remove('show');
+  }else{
+    window._adminAtivo=false;window._adminUsuario='';
+    document.getElementById('tela-login').classList.add('show');
+  }
   renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
 });
+window.fazerLoginApp=async function(){
+  var email=document.getElementById('login-email').value.trim();var senha=document.getElementById('login-senha').value;
+  var erEl=document.getElementById('login-erro');var ldEl=document.getElementById('login-loading-tela');
+  if(!email||!senha){erEl.textContent='❌ Preencha e-mail e senha.';erEl.classList.add('show');return;}
+  erEl.classList.remove('show');ldEl.classList.add('show');
+  try{
+    await signInWithEmailAndPassword(auth,email,senha);
+    document.getElementById('login-email').value='';document.getElementById('login-senha').value='';
+  }catch(e){
+    var msg='❌ E-mail ou senha incorretos.';
+    if(e.code==='auth/user-not-found')msg='❌ Usuário não encontrado.';
+    else if(e.code==='auth/wrong-password')msg='❌ Senha incorreta.';
+    else if(e.code==='auth/invalid-credential')msg='❌ E-mail ou senha incorretos.';
+    else if(e.code==='auth/invalid-email')msg='❌ E-mail inválido.';
+    else if(e.code==='auth/too-many-requests')msg='❌ Muitas tentativas.';
+    else if(e.code==='auth/network-request-failed')msg='❌ Sem conexão.';
+    erEl.textContent=msg;erEl.classList.add('show');document.getElementById('login-senha').value='';
+  }
+  ldEl.classList.remove('show');
+};
 onValue(ref(db,'admin_config/nome_instituicao'),function(snap){
   var n=snap.val()||'CETI Dariana';document.getElementById('header-nome-inst').textContent=n;document.title=n;
 });
