@@ -640,6 +640,25 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
+      <div class="accordion-item" id="acc-professores" style="display:none">
+        <div class="accordion-header" onclick="toggleAccordion('acc-professores')">
+          <div class="accordion-header-left"><div class="accordion-icon">👩‍🏫</div><div><div class="accordion-title">Gerenciar Professores</div><div class="accordion-desc" id="acc-professores-desc">Adicione ou remova o acesso dos professores</div></div></div>
+          <div class="accordion-chevron">▼</div>
+        </div>
+        <div class="accordion-divider"></div>
+        <div class="accordion-body">
+          <div style="margin-top:4px;">
+            <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Professor</div>
+            <div class="form-group"><label>E-mail do professor *</label><input type="email" id="cfg-prof-email" placeholder="professor@email.com" autocomplete="off"></div>
+            <div class="erro-msg" id="erro-prof"></div>
+            <div class="sucesso-msg" id="sucesso-prof"></div>
+            <button class="btn-salvar" style="font-size:12px;padding:10px;margin-bottom:16px;" onclick="salvarProfessor()">+ Adicionar Professor</button>
+            <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--cinza);border-radius:8px;border:1px solid var(--borda);">👥 Professores com Acesso</div>
+            <div class="alunos-lista-config" id="professores-lista-config"><div class="alunos-vazio">Nenhum professor cadastrado</div></div>
+          </div>
+        </div>
+      </div>
+
       <div class="accordion-item" id="acc-turmas" style="display:none">
         <div class="accordion-header" onclick="toggleAccordion('acc-turmas')">
           <div class="accordion-header-left"><div class="accordion-icon">🏷️</div><div><div class="accordion-title">Banco de Turmas</div><div class="accordion-desc" id="acc-turmas-desc">Gerencie as turmas disponíveis</div></div></div>
@@ -818,7 +837,7 @@ html[data-tema="black"] .toast{background:#222;}
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 import{getDatabase,ref,push,update,remove,onValue,get}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
-import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword,createUserWithEmailAndPassword,sendPasswordResetEmail}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDoPFwn-5YHuDUVuYoLjC1NH84eQLSQ6AA",
@@ -834,6 +853,9 @@ const db=getDatabase(app);const auth=getAuth(app);
 const ocRef=ref(db,'ocorrencias');const evRef=ref(db,'eventos_calendario');
 const alunosRef=ref(db,'banco_alunos');const turmasRef=ref(db,'banco_turmas');
 const rolesRef=ref(db,'roles');
+const professoresRef=ref(db,'professores');
+const secondaryApp=initializeApp(firebaseConfig,'Secondary');
+const secondaryAuth=getAuth(secondaryApp);
 
 window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';
 function he(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -965,7 +987,69 @@ window.pedirExclusaoTurma=function(key){
   if(!window._adminAtivo){mostrarToast('⚠️ Apenas admin pode excluir');return;}
   window._turmaParaExcluir=key;document.getElementById('modal-excluir-turma').classList.add('show');
 };
+window.salvarProfessor=async function(){
+  var email=(document.getElementById('cfg-prof-email').value||'').trim();
+  var erEl=document.getElementById('erro-prof');var suEl=document.getElementById('sucesso-prof');
+  erEl.classList.remove('show');suEl.classList.remove('show');
+  if(!email){erEl.textContent='❌ Informe o e-mail do professor.';erEl.classList.add('show');return;}
+  var btn=document.querySelector('#acc-professores .btn-salvar');if(btn){btn.disabled=true;btn.textContent='Adicionando...';}
+  var senhaTemp=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)+'Aa1!';
+  try{
+    var cred=await createUserWithEmailAndPassword(secondaryAuth,email,senhaTemp);
+    var uid=cred.user.uid;
+    await signOut(secondaryAuth);
+    await update(ref(db,'roles'),{[uid]:'professor'});
+    await update(ref(db,'professores'),{[uid]:{email:email,criadoEm:Date.now()}});
+    await sendPasswordResetEmail(auth,email);
+    document.getElementById('cfg-prof-email').value='';
+    suEl.textContent='✅ Professor adicionado! Um e-mail foi enviado para definir a senha.';suEl.classList.add('show');
+    setTimeout(function(){suEl.classList.remove('show');},4000);
+    mostrarToast('✓ Professor cadastrado!');
+  }catch(e){
+    var msg='❌ Erro ao adicionar.';
+    if(e.code==='auth/email-already-in-use')msg='❌ Este e-mail já está cadastrado.';
+    else if(e.code==='auth/invalid-email')msg='❌ E-mail inválido.';
+    else msg='❌ '+e.message;
+    erEl.textContent=msg;erEl.classList.add('show');
+  }
+  if(btn){btn.disabled=false;btn.textContent='+ Adicionar Professor';}
+};
+onValue(professoresRef,function(snap){
+  var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—'});});
+  window._professores=lista;renderProfessoresConfig();
+});
+function renderProfessoresConfig(){
+  var lista=window._professores||[];var c=document.getElementById('professores-lista-config');if(!c)return;
+  var desc=document.getElementById('acc-professores-desc');
+  if(desc)desc.textContent=lista.length?lista.length+' professor(es) com acesso':'Adicione ou remova o acesso dos professores';
+  if(!lista.length){c.innerHTML='<div class="alunos-vazio">Nenhum professor cadastrado</div>';return;}
+  c.innerHTML=lista.map(function(p){
+    return'<div class="aluno-config-item"><div class="aluno-config-main"><div><div class="aluno-config-nome">'+he(p.email)+'</div></div><button class="btn-del-aluno" onclick="pedirExclusaoProfessor(\''+p.uid+'\')" title="Remover acesso">✕</button></div></div>';
+  }).join('');
+}
+window._profParaExcluir=null;
+window.pedirExclusaoProfessor=function(uid){
+  if(!window._adminAtivo){mostrarToast('⚠️ Apenas admin pode remover');return;}
+  window._profParaExcluir=uid;
+  document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Remover Acesso';
+  document.getElementById('modal-excluir-turma').querySelector('p').textContent='O professor perde acesso ao app. A conta continua existindo até ser excluída manualmente no Firebase Console.';
+  document.getElementById('modal-excluir-turma').classList.add('show');
+  window._excluindoProfessor=true;
+};
 window.confirmarExclusaoTurma=async function(){
+  if(window._excluindoProfessor){
+    var uid=window._profParaExcluir;if(!uid)return;
+    document.getElementById('modal-excluir-turma').classList.remove('show');
+    try{
+      await remove(ref(db,'roles/'+uid));
+      await remove(ref(db,'professores/'+uid));
+      mostrarToast('🗑️ Acesso removido!');
+    }catch(e){mostrarToast('❌ Erro: '+e.message);}
+    window._profParaExcluir=null;window._excluindoProfessor=false;
+    document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Remover Turma';
+    document.getElementById('modal-excluir-turma').querySelector('p').textContent='Tem certeza que deseja remover esta turma?';
+    return;
+  }
   var key=window._turmaParaExcluir;if(!key)return;
   document.getElementById('modal-excluir-turma').classList.remove('show');
   try{await remove(ref(db,'banco_turmas/'+key));mostrarToast('🗑️ Turma removida!');}
@@ -1275,7 +1359,7 @@ function atualizarUiAdminConfig(){
   document.getElementById('config-admin-deslogado').style.display=logado?'none':'block';
   document.getElementById('config-admin-logado').style.display=logado?'block':'none';
   document.getElementById('acc-admin-desc').textContent=logado?('Admin: '+(window._adminUsuario||'—')):'Entre com e-mail e senha de administrador';
-  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
+  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
   if(logado){
     document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
     popularEmojiGrid('emoji-grid-painel');
