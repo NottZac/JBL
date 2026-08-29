@@ -817,7 +817,7 @@ html[data-tema="black"] .toast{background:#222;}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-import{getDatabase,ref,push,update,remove,onValue}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+import{getDatabase,ref,push,update,remove,onValue,get}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -833,6 +833,7 @@ const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);const auth=getAuth(app);
 const ocRef=ref(db,'ocorrencias');const evRef=ref(db,'eventos_calendario');
 const alunosRef=ref(db,'banco_alunos');const turmasRef=ref(db,'banco_turmas');
+const rolesRef=ref(db,'roles');
 
 window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';
 function he(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -879,12 +880,21 @@ window.selecionarTerminologia=function(t){
 };
 
 // ═══ AUTH ═══
-onAuthStateChanged(auth,function(user){
+window._papelUsuario='';
+onAuthStateChanged(auth,async function(user){
   if(user){
-    window._adminAtivo=true;window._adminUsuario=user.email;
+    window._adminUsuario=user.email;
     document.getElementById('tela-login').classList.remove('show');
+    try{
+      var snap=await get(ref(db,'roles/'+user.uid));
+      var papel=snap.exists()?snap.val():'';
+      window._papelUsuario=papel;
+      window._adminAtivo=(papel==='admin');
+    }catch(e){
+      window._papelUsuario='';window._adminAtivo=false;
+    }
   }else{
-    window._adminAtivo=false;window._adminUsuario='';
+    window._adminAtivo=false;window._adminUsuario='';window._papelUsuario='';
     document.getElementById('tela-login').classList.add('show');
   }
   renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
