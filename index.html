@@ -777,7 +777,7 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
-      <div class="accordion-item" id="acc-log" style="display:none">
+            <div class="accordion-item" id="acc-log" style="display:none">
         <div class="accordion-header" onclick="toggleAccordion('acc-log')">
           <div class="accordion-header-left"><div class="accordion-icon">🧾</div><div><div class="accordion-title">Log de Auditoria</div><div class="accordion-desc" id="acc-log-desc">Últimas ações em ocorrências</div></div></div>
           <div class="accordion-chevron">▼</div>
@@ -785,6 +785,17 @@ html[data-tema="black"] .toast{background:#222;}
         <div class="accordion-divider"></div>
         <div class="accordion-body">
           <div id="log-lista-config" style="margin-top:4px;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;"><div class="alunos-vazio">Carregando...</div></div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="acc-importacoes" style="display:none">
+        <div class="accordion-header" onclick="toggleAccordion('acc-importacoes')">
+          <div class="accordion-header-left"><div class="accordion-icon">↩️</div><div><div class="accordion-title">Importações Recentes</div><div class="accordion-desc" id="acc-importacoes-desc">Desfaça importações de PDF por engano</div></div></div>
+          <div class="accordion-chevron">▼</div>
+        </div>
+        <div class="accordion-divider"></div>
+        <div class="accordion-body">
+          <div id="importacoes-lista-config" style="margin-top:4px;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;"><div class="alunos-vazio">Carregando...</div></div>
         </div>
       </div>
 
@@ -911,10 +922,11 @@ const alunosRef=ref(db,'banco_alunos');const turmasRef=ref(db,'banco_turmas');
 const rolesRef=ref(db,'roles');
 const professoresRef=ref(db,'professores');
 const logRef=ref(db,'log_auditoria');
+const importacoesRef=ref(db,'importacoes_pdf');
 const secondaryApp=initializeApp(firebaseConfig,'Secondary');
 const secondaryAuth=getAuth(secondaryApp);
 
-window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';
+window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';window._importacoes=[];
 function he(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function turmaCheckboxesHtml(prefix,selecionadas){
   var turmas=window._turmas||[];
@@ -951,6 +963,42 @@ function renderLog(){
     return'<div class="aluno-config-item"><div class="aluno-config-main"><div><div class="aluno-config-nome">'+he(l.acao||'—')+'</div><div class="aluno-config-sub">'+he(l.detalhes||'')+'</div><div class="aluno-config-sub">'+he(l.usuario||'—')+' · '+dtStr+'</div></div></div></div>';
   }).join('');
 }
+function renderImportacoesConfig(){
+  var lista=window._importacoes||[];var isAdmin=window._adminAtivo;
+  var c=document.getElementById('importacoes-lista-config');if(!c)return;
+  var desc=document.getElementById('acc-importacoes-desc');if(desc)desc.textContent=lista.length?lista.length+' importação(ões) recente(s)':'Nenhuma importação recente';
+  if(!lista.length){c.innerHTML='<div class="alunos-vazio">Nenhuma importação recente</div>';return;}
+  c.innerHTML=lista.map(function(imp){
+    var dt=new Date(imp.timestamp||0);var dtStr=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    var btnDel=isAdmin?'<button class="btn-del-turma" onclick="pedirDesfazerImportacao(\''+imp.firebaseKey+'\')" title="Desfazer">↩️</button>':'';
+    return'<div class="aluno-config-item"><div class="aluno-config-main"><div><div class="aluno-config-nome">'+(imp.quantidade||0)+' aluno(s) importado(s)</div><div class="aluno-config-sub">'+dtStr+'</div></div>'+btnDel+'</div></div>';
+  }).join('');
+}
+window._importParaDesfazer=null;window._excluindoImportacao=false;
+window.pedirDesfazerImportacao=function(key){
+  if(!window._adminAtivo){mostrarToast('⚠️ Apenas admin pode desfazer');return;}
+  window._importParaDesfazer=key;
+  document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Desfazer Importação';
+  document.getElementById('modal-excluir-turma').querySelector('p').textContent='Os alunos cadastrados nesta importação serão removidos do banco. Deseja continuar?';
+  document.getElementById('modal-excluir-turma').classList.add('show');
+  window._excluindoImportacao=true;
+};
+window.confirmarDesfazerImportacao=async function(){
+  var key=window._importParaDesfazer;if(!key)return;
+  document.getElementById('modal-excluir-turma').classList.remove('show');
+  var imp=(window._importacoes||[]).find(function(x){return x.firebaseKey===key;});
+  if(!imp){window._importParaDesfazer=null;window._excluindoImportacao=false;return;}
+  try{
+    var keys=imp.alunosKeys||[];
+    for(var i=0;i<keys.length;i++){await remove(ref(db,'banco_alunos/'+keys[i]));}
+    await remove(ref(db,'importacoes_pdf/'+key));
+    registrarLog('Desfez importação de PDF',keys.length+' aluno(s) removido(s)');
+    mostrarToast('✓ Importação desfeita! '+keys.length+' aluno(s) removido(s)');
+  }catch(e){mostrarToast(e.message.includes('PERMISSION_DENIED')?'❌ Acesso negado.':'❌ Erro: '+e.message);}
+  window._importParaDesfazer=null;window._excluindoImportacao=false;
+  document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Remover Turma';
+  document.getElementById('modal-excluir-turma').querySelector('p').textContent='Tem certeza que deseja remover esta turma?';
+};
 
 // ═══ AUTO-° CAMPO SÉRIE MANUAL E TURMA CONFIG ═══
 function bindAutoGrau(inputId){
@@ -1069,9 +1117,14 @@ function iniciarListenerCabecalho(){
     l.sort(function(a,b){return(a.serie||'').localeCompare(b.serie||'')||(a.turma||'').localeCompare(b.turma||'')||(a.nome||'').localeCompare(b.nome||'');});
     window._alunos=l;renderAlunosConfig();popularSeriesSel();
   });
-   onValue(professoresRef,function(snap){
+      onValue(professoresRef,function(snap){
     var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—',turmas:c.val().turmas||[]});});
     window._professores=lista;renderProfessoresConfig();
+  });
+  onValue(importacoesRef,function(snap){
+    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+    l.sort(function(a,b){return(b.timestamp||0)-(a.timestamp||0);});
+    window._importacoes=l;renderImportacoesConfig();
   });
   onValue(query(logRef,limitToLast(50)),function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
@@ -1504,16 +1557,16 @@ function atualizarUiAdminConfig(){
   var logado=window._adminAtivo;
   document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
   document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
-  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-lgpd','acc-log'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
+  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-lgpd','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
    if(logado){
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
     document.getElementById('p-nome-inst').value=nAtual==='Minha Instituição'?'':nAtual;
     renderAddProfTurmasCheckboxes();
   }
-  document.getElementById('admin-banner').classList.toggle('show',logado);
+    document.getElementById('admin-banner').classList.toggle('show',logado);
   if(logado)document.getElementById('admin-user-badge').textContent=window._adminUsuario||'—';
-  renderAlunosConfig();renderTurmasConfig();
+  renderAlunosConfig();renderTurmasConfig();renderImportacoesConfig();
 }
 window.sairAdminConfig=async function(){
   try{await signOut(auth);mostrarToast('Você saiu da conta');document.getElementById('acc-admin').classList.remove('open');}
@@ -2104,6 +2157,11 @@ await push(ref(db,'admin_config/categorias_ocorrencia'),{nome:nome,ordem:proxima
     document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Remover Turma';
     document.getElementById('modal-excluir-turma').querySelector('p').textContent='Tem certeza que deseja remover esta turma?';
   }
+  if(window._excluindoImportacao){
+    window._importParaDesfazer=null;window._excluindoImportacao=false;
+    document.getElementById('modal-excluir-turma').querySelector('h3').textContent='Remover Turma';
+    document.getElementById('modal-excluir-turma').querySelector('p').textContent='Tem certeza que deseja remover esta turma?';
+  }
 };
 
 window._catParaExcluir=null;
@@ -2121,6 +2179,7 @@ window.pedirExclusaoCategoria=function(key){
 // Patch no confirmarExclusaoTurma para suportar categoria
 var _origConfirmarTurma=window.confirmarExclusaoTurma;
 window.confirmarExclusaoTurma=async function(){
+  if(window._excluindoImportacao){confirmarDesfazerImportacao();return;}
   if(window._excluindoCategoria){
     var key=window._catParaExcluir;if(!key)return;
     document.getElementById('modal-excluir-turma').classList.remove('show');
@@ -2254,7 +2313,8 @@ window.confirmarImportacaoPDF=async function(){
       var chave=a.serie+'|'+a.turma;
       if(!turmasExistentes[chave]){turmasExistentes[chave]=true;var key=push(turmasRef).key;updatesTurmas[key]={serie:a.serie,nome:a.turma,timestamp:Date.now()};}
     });
-    if(Object.keys(updatesTurmas).length)await update(turmasRef,updatesTurmas);
+        if(Object.keys(updatesTurmas).length)await update(turmasRef,updatesTurmas);
+    await push(importacoesRef,{timestamp:Date.now(),quantidade:selecionados.length,alunosKeys:Object.keys(updatesAlunos)});
     registrarLog('Importou alunos via PDF',selecionados.length+' aluno(s) cadastrado(s)');
     mostrarToast('✓ '+selecionados.length+' aluno(s) cadastrado(s)!');
     fecharModalImportPDF();
