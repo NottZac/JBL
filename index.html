@@ -2143,7 +2143,7 @@ function capitalizarNomeAluno(nome){
 async function extrairAlunosDoPDF(file){
   var buf=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  var linhaHeadRe=/(\d{1,2})\s+ANO\s+(\d{2})\s+\S+\s*$/;
+  var linhaHeadRe=/(\d{1,2})\s+(?:ANO|S[EÉ]RIE)\s+(\d{2})\s+\S+\s*$/i;
   var linhaRowRe=/^(\d{3})\s+(\S+)\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)\s*$/;
   var resultado=[];
   for(var p=1;p<=pdf.numPages;p++){
