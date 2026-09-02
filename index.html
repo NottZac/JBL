@@ -8,6 +8,8 @@
 <title>E. E. Profº. José Bernardino Lindoso</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
 <style>
 :root{
   --azul:#1B3F8B;--azul2:#2A5BD7;--azulc:#E8EEFF;--amarelo:#FFB800;--verde:#22C55E;
@@ -615,7 +617,9 @@ html[data-tema="black"] .toast{background:#222;}
         <div class="accordion-body">
           <div style="margin-top:4px;">
             <div class="aviso-regras" id="aviso-regras-firebase">⚠️ <strong>Configuração necessária:</strong> Vá ao Firebase Console → Realtime Database → Regras e configure conforme orientado pelo desenvolvedor.</div>
-            <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Aluno</div>
+            <button class="btn-salvar" style="font-size:12px;padding:10px;margin-bottom:12px;background:var(--azul2);color:#fff;" onclick="document.getElementById('import-pdf-input').click()">📄 Importar alunos de um PDF (Relação de Alunos)</button>
+            <input type="file" id="import-pdf-input" accept="application/pdf" style="display:none" onchange="processarPDFAlunos(event)">
+            <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Aluno (manual)</div>
             <div class="form-group"><label>Nome do Aluno *</label><input type="text" id="cfg-aluno-nome" placeholder="Nome completo" style="text-transform:capitalize;" autocomplete="off"></div>
             <div class="form-row">
               <div class="form-group"><label id="label-cfg-serie">Ano *</label><select id="cfg-aluno-serie" onchange="filtrarTurmasPorSerie()"><option value="">— Selecione —</option></select></div>
@@ -813,6 +817,27 @@ html[data-tema="black"] .toast{background:#222;}
   </div>
 </div>
 
+  <div class="modal-bg" id="modal-import-pdf">
+  <div class="modal" style="max-height:85vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <h3>📄 Importar Alunos do PDF</h3>
+    <p id="import-pdf-status">Selecione um arquivo PDF de "Relação de Alunos".</p>
+    <div id="import-pdf-loading" style="display:none;text-align:center;padding:16px;"><div class="spinner"></div><div style="font-size:12px;color:var(--sub);margin-top:8px;">Lendo o PDF...</div></div>
+    <div id="import-pdf-resumo" style="display:none;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+    <div id="import-pdf-acoes-topo" style="display:none;gap:8px;margin-bottom:10px;">
+      <button class="rel-atalho-btn" onclick="marcarTodosImportPDF(true)" style="flex:1">☑️ Marcar todos</button>
+      <button class="rel-atalho-btn" onclick="marcarTodosImportPDF(false)" style="flex:1">⬜ Desmarcar todos</button>
+    </div>
+    <div id="import-pdf-lista" style="display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;"></div>
+    <div class="erro-msg" id="import-pdf-erro"></div>
+    <div class="modal-btns">
+      <button class="btn-cancelar" onclick="fecharModalImportPDF()">Cancelar</button>
+      <button class="btn-confirmar-azul" id="btn-confirmar-import-pdf" style="display:none" onclick="confirmarImportacaoPDF()">✅ Cadastrar selecionados</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-bg" id="modal-icone">
   <div class="modal"><div class="modal-handle"></div>
     <h3>Ícone do App</h3><p>Escolha o ícone exibido no cabeçalho</p>
@@ -972,26 +997,35 @@ window.selecionarTerminologia=function(t){
 window._papelUsuario='';
 onAuthStateChanged(auth,async function(user){
   if(user){
+    window._adminUsuario=user.email;window._roleUnsub=null;
+onAuthStateChanged(auth,function(user){
+  if(window._roleUnsub){window._roleUnsub();window._roleUnsub=null;}
+  if(user){
     window._adminUsuario=user.email;
     document.getElementById('tela-login').classList.remove('show');
-        try{
-      var snap=await get(ref(db,'roles/'+user.uid));
+    var roleRef=ref(db,'roles/'+user.uid);
+    window._roleUnsub=onValue(roleRef,async function(snap){
       var papel=snap.exists()?snap.val():'';
       window._papelUsuario=papel;
       window._adminAtivo=(papel==='admin');
       if(papel==='professor'){
-        try{var profSnap=await get(ref(db,'professores/'+user.uid));window._turmasProfessor=(profSnap.exists()&&profSnap.val().turmas)?profSnap.val().turmas:[];}
-        catch(e2){window._turmasProfessor=[];}
-      }else{window._turmasProfessor=[];}
+        try{
+          var profSnap=await get(ref(db,'professores/'+user.uid));
+          window._turmasProfessor=(profSnap.exists()&&profSnap.val().turmas)?profSnap.val().turmas:[];
+        }catch(e2){window._turmasProfessor=[];}
+      }else{
+        window._turmasProfessor=[];
+      }
       iniciarListenerCabecalho();
-    }catch(e){
-      window._papelUsuario='';window._adminAtivo=false;window._turmasProfessor=[];
-    }
+      renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
+    },function(erro){
+      console.warn('Falha temporária ao ler papel do usuário, tentando novamente...',erro);
+    });
   }else{
-    window._adminAtivo=false;window._adminUsuario='';window._papelUsuario='';
+    window._adminAtivo=false;window._adminUsuario='';window._papelUsuario='';window._turmasProfessor=[];
     document.getElementById('tela-login').classList.add('show');
+    renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
   }
-  renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
 });
 function iniciarListenerPublico(){
   if(window._listenerPublicoAtivo)return;window._listenerPublicoAtivo=true;
@@ -2103,6 +2137,136 @@ window.confirmarExclusaoTurma=async function(){
   }
   _origConfirmarTurma();
 };
+    // ═══ IMPORTAÇÃO DE ALUNOS VIA PDF ═══
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+window._alunosImportPDF=[];
+function capitalizarNomeAluno(nome){
+  return nome.trim().split(/\s+/).map(function(p){return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase();}).join(' ');
+}
+async function extrairAlunosDoPDF(file){
+  var buf=await file.arrayBuffer();
+  var pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  var linhaHeadRe=/(\d{1,2})\s+ANO\s+(\d{2})\s+\S+\s*$/;
+  var linhaRowRe=/^(\d{3})\s+(\S+)\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)\s*$/;
+  var resultado=[];
+  for(var p=1;p<=pdf.numPages;p++){
+    var page=await pdf.getPage(p);
+    var content=await page.getTextContent();
+    // Agrupa os fragmentos de texto por linha (mesma posição Y) e ordena por X,
+    // reconstruindo cada linha da tabela na ordem visual correta do PDF.
+    var porY=[];
+    content.items.forEach(function(item){
+      var y=Math.round(item.transform[5]);
+      var grupo=porY.find(function(g){return Math.abs(g.y-y)<=3;});
+      if(!grupo){grupo={y:y,itens:[]};porY.push(grupo);}
+      grupo.itens.push({x:item.transform[4],texto:item.str});
+    });
+    var linhas=porY.sort(function(a,b){return b.y-a.y;}).map(function(g){
+      return g.itens.sort(function(a,b){return a.x-b.x;}).map(function(i){return i.texto;}).join(' ').replace(/\s+/g,' ').trim();
+    });
+    var serieAtual=null,turmaAtual=null;
+    linhas.forEach(function(linha){
+      var mHead=linhaHeadRe.exec(linha);
+      if(mHead){serieAtual=mHead[1]+'°';turmaAtual=mHead[2];return;}
+      var mRow=linhaRowRe.exec(linha);
+      if(mRow&&serieAtual&&turmaAtual){
+        var nome=mRow[3].trim();
+        if(!/^[A-ZÀ-Ü][A-ZÀ-Ü\s.'-]+$/.test(nome))return;
+        resultado.push({nome:capitalizarNomeAluno(nome),serie:serieAtual,turma:turmaAtual,situacao:mRow[5],dataNascimento:mRow[4]});
+      }
+    });
+  }
+  return resultado;
+}
+window.processarPDFAlunos=async function(ev){
+  var file=ev.target.files[0];ev.target.value='';if(!file)return;
+  document.getElementById('modal-import-pdf').classList.add('show');
+  document.getElementById('import-pdf-status').textContent='Selecione um arquivo PDF de "Relação de Alunos".';
+  document.getElementById('import-pdf-loading').style.display='block';
+  document.getElementById('import-pdf-resumo').style.display='none';
+  document.getElementById('import-pdf-acoes-topo').style.display='none';
+  document.getElementById('import-pdf-lista').innerHTML='';
+  document.getElementById('btn-confirmar-import-pdf').style.display='none';
+  document.getElementById('import-pdf-erro').classList.remove('show');
+  try{
+    var extraidos=await extrairAlunosDoPDF(file);
+    if(!extraidos.length){
+      document.getElementById('import-pdf-loading').style.display='none';
+      document.getElementById('import-pdf-erro').textContent='❌ Não foi possível reconhecer alunos neste PDF. Verifique se é o relatório "Relação de Alunos".';
+      document.getElementById('import-pdf-erro').classList.add('show');
+      return;
+    }
+    var existentes={};
+    (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma]=true;});
+    extraidos.forEach(function(a){a._duplicado=!!existentes[a.nome.toLowerCase()+'|'+a.serie+'|'+a.turma];});
+    window._alunosImportPDF=extraidos;
+    document.getElementById('import-pdf-loading').style.display='none';
+    renderChecklistImportPDF();
+  }catch(e){
+    document.getElementById('import-pdf-loading').style.display='none';
+    document.getElementById('import-pdf-erro').textContent='❌ Erro ao ler o PDF: '+e.message;
+    document.getElementById('import-pdf-erro').classList.add('show');
+  }
+};
+function renderChecklistImportPDF(){
+  var lista=window._alunosImportPDF||[];
+  var novos=lista.filter(function(a){return!a._duplicado;}).length;
+  var dup=lista.length-novos;
+  document.getElementById('import-pdf-status').textContent=lista.length+' aluno(s) encontrado(s) no PDF.';
+  document.getElementById('import-pdf-resumo').style.display='block';
+  document.getElementById('import-pdf-resumo').innerHTML='✅ '+novos+' novo(s) · ⚠️ '+dup+' já cadastrado(s) (desmarcados) · Desmarque quem não deve entrar (ex: situação TRANS/REMAN).';
+  document.getElementById('import-pdf-acoes-topo').style.display='flex';
+  document.getElementById('btn-confirmar-import-pdf').style.display='block';
+  var cores={CURSANDO:'badge-resolvido',TRANS:'badge-pendente',REMAN:'badge-acomp'};
+  document.getElementById('import-pdf-lista').innerHTML=lista.map(function(a,idx){
+    var marcado=(!a._duplicado&&a.situacao==='CURSANDO')?' checked':'';
+    var badgeCls=cores[a.situacao]||'badge-pendente';
+    return '<label style="display:flex;align-items:center;gap:8px;background:var(--cinza);border:1px solid var(--borda);border-radius:8px;padding:8px 10px;">'+
+      '<input type="checkbox" id="imp-chk-'+idx+'"'+marcado+' style="width:auto;flex-shrink:0;">'+
+      '<span style="flex:1;min-width:0;"><span style="font-size:12px;font-weight:600;color:var(--texto);">'+he(a.nome)+'</span>'+
+      '<span style="font-size:10px;color:var(--sub);display:block;">'+he(a.serie)+' · Turma '+he(a.turma)+(a._duplicado?' · já cadastrado':'')+'</span></span>'+
+      '<span class="badge '+badgeCls+'" style="flex-shrink:0;"><span class="badge-dot"></span>'+a.situacao+'</span>'+
+    '</label>';
+  }).join('');
+}
+window.marcarTodosImportPDF=function(marcar){
+  (window._alunosImportPDF||[]).forEach(function(a,idx){
+    var chk=document.getElementById('imp-chk-'+idx);if(chk)chk.checked=marcar;
+  });
+};
+window.fecharModalImportPDF=function(){
+  document.getElementById('modal-import-pdf').classList.remove('show');window._alunosImportPDF=[];
+};
+window.confirmarImportacaoPDF=async function(){
+  var lista=window._alunosImportPDF||[];
+  var selecionados=lista.filter(function(a,idx){var chk=document.getElementById('imp-chk-'+idx);return chk&&chk.checked;});
+  if(!selecionados.length){mostrarToast('⚠️ Nenhum aluno selecionado');return;}
+  var btn=document.getElementById('btn-confirmar-import-pdf');btn.disabled=true;btn.textContent='Cadastrando...';
+  try{
+    var updatesAlunos={};
+    selecionados.forEach(function(a){
+      var key=push(alunosRef).key;
+      updatesAlunos[key]={nome:a.nome,serie:a.serie,turma:a.turma,timestamp:Date.now()};
+    });
+    await update(alunosRef,updatesAlunos);
+    // Cria também, no Banco de Turmas, as turmas (série+turma) que ainda não existirem
+    var turmasExistentes={};
+    (window._turmas||[]).forEach(function(t){turmasExistentes[t.serie+'|'+t.nome]=true;});
+    var updatesTurmas={};
+    selecionados.forEach(function(a){
+      var chave=a.serie+'|'+a.turma;
+      if(!turmasExistentes[chave]){turmasExistentes[chave]=true;var key=push(turmasRef).key;updatesTurmas[key]={serie:a.serie,nome:a.turma,timestamp:Date.now()};}
+    });
+    if(Object.keys(updatesTurmas).length)await update(turmasRef,updatesTurmas);
+    registrarLog('Importou alunos via PDF',selecionados.length+' aluno(s) cadastrado(s)');
+    mostrarToast('✓ '+selecionados.length+' aluno(s) cadastrado(s)!');
+    fecharModalImportPDF();
+  }catch(e){
+    mostrarToast(e.message.includes('PERMISSION_DENIED')?'❌ Acesso negado. Configure as Regras do Firebase.':'❌ Erro: '+e.message);
+  }
+  btn.disabled=false;btn.textContent='✅ Cadastrar selecionados';
+};
+
 
 // ═══ INIT ═══
 iniciarListenerPublico();
