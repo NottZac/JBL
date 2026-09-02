@@ -995,9 +995,6 @@ window.selecionarTerminologia=function(t){
 
 // ═══ AUTH ═══
 window._papelUsuario='';
-onAuthStateChanged(auth,async function(user){
-  if(user){
-    window._adminUsuario=user.email;window._roleUnsub=null;
 onAuthStateChanged(auth,function(user){
   if(window._roleUnsub){window._roleUnsub();window._roleUnsub=null;}
   if(user){
