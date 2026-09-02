@@ -838,8 +838,15 @@ html[data-tema="black"] .toast{background:#222;}
   <div class="modal-bg" id="modal-import-pdf">
   <div class="modal" style="max-height:85vh;overflow-y:auto;">
     <div class="modal-handle"></div>
-    <h3>📄 Importar Alunos do PDF</h3>
+        <h3>📄 Importar Alunos do PDF</h3>
     <p id="import-pdf-status">Selecione um arquivo PDF de "Relação de Alunos".</p>
+    <div class="form-group" id="import-pdf-nivel-wrap" style="display:none;margin-bottom:10px;">
+      <label>Nível de Ensino deste PDF</label>
+      <select id="import-pdf-nivel-sel" onchange="atualizarNivelImportPDF()">
+        <option value="fundamental">Ensino Fundamental</option>
+        <option value="medio">Ensino Médio</option>
+      </select>
+    </div>
     <div id="import-pdf-loading" style="display:none;text-align:center;padding:16px;"><div class="spinner"></div><div style="font-size:12px;color:var(--sub);margin-top:8px;">Lendo o PDF...</div></div>
     <div id="import-pdf-resumo" style="display:none;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
     <div id="import-pdf-acoes-topo" style="display:none;gap:8px;margin-bottom:10px;">
@@ -1422,9 +1429,10 @@ window.confirmarApagarTodosAlunos=async function(){
   var lista=window._alunos||[];if(!lista.length){fecharModalApagarAlunos();return;}
   var btn=document.getElementById('btn-confirmar-apagar-alunos');btn.disabled=true;btn.textContent='Apagando...';
   try{
-    var snapshot={};lista.forEach(function(a){var d=Object.assign({},a);delete d.firebaseKey;snapshot[a.firebaseKey]=d;});
+        var snapshot={};lista.forEach(function(a){var d=Object.assign({},a);delete d.firebaseKey;snapshot[a.firebaseKey]=d;});
     await push(importacoesRef,{tipo:'exclusao_total',timestamp:Date.now(),quantidade:lista.length,alunosSnapshot:snapshot});
-    await remove(alunosRef);
+    var updatesNull={};lista.forEach(function(a){updatesNull[a.firebaseKey]=null;});
+    await update(alunosRef,updatesNull);
     registrarLog('Apagou todo o banco de alunos',lista.length+' aluno(s) removido(s)');
     mostrarToast('🗑️ Banco de alunos apagado! ('+lista.length+' aluno(s))');
     fecharModalApagarAlunos();
@@ -2309,13 +2317,18 @@ window.processarPDFAlunos=async function(ev){
   document.getElementById('btn-confirmar-import-pdf').style.display='none';
   document.getElementById('import-pdf-erro').classList.remove('show');
   try{
-    var extraidos=await extrairAlunosDoPDF(file);
+        var extraidos=await extrairAlunosDoPDF(file);
     if(!extraidos.length){
       document.getElementById('import-pdf-loading').style.display='none';
       document.getElementById('import-pdf-erro').textContent='❌ Não foi possível reconhecer alunos neste PDF. Verifique se é o relatório "Relação de Alunos".';
       document.getElementById('import-pdf-erro').classList.add('show');
       return;
     }
+    var qtdMedio=extraidos.filter(function(a){return a.nivel==='medio';}).length;
+    var nivelDetectado=qtdMedio>extraidos.length/2?'medio':'fundamental';
+    extraidos.forEach(function(a){a.nivel=nivelDetectado;});
+    document.getElementById('import-pdf-nivel-sel').value=nivelDetectado;
+    document.getElementById('import-pdf-nivel-wrap').style.display='block';
        var existentes={};
     (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')]=true;});
     extraidos.forEach(function(a){a._duplicado=!!existentes[a.nome.toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')];});
@@ -2350,6 +2363,14 @@ function renderChecklistImportPDF(){
     '</label>';
   }).join('');
 }
+window.atualizarNivelImportPDF=function(){
+  var nivel=document.getElementById('import-pdf-nivel-sel').value;
+  (window._alunosImportPDF||[]).forEach(function(a){a.nivel=nivel;});
+  var existentes={};
+  (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')]=true;});
+  (window._alunosImportPDF||[]).forEach(function(a){a._duplicado=!!existentes[a.nome.toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')];});
+  renderChecklistImportPDF();
+};
 window.marcarTodosImportPDF=function(marcar){
   (window._alunosImportPDF||[]).forEach(function(a,idx){
     var chk=document.getElementById('imp-chk-'+idx);if(chk)chk.checked=marcar;
@@ -2357,6 +2378,7 @@ window.marcarTodosImportPDF=function(marcar){
 };
 window.fecharModalImportPDF=function(){
   document.getElementById('modal-import-pdf').classList.remove('show');window._alunosImportPDF=[];
+  document.getElementById('import-pdf-nivel-wrap').style.display='none';
 };
 window.confirmarImportacaoPDF=async function(){
   var lista=window._alunosImportPDF||[];
