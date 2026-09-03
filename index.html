@@ -652,9 +652,7 @@ html[data-tema="black"] .toast{background:#222;}
             <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Professor</div>
                         <div class="form-group"><label>E-mail do professor *</label><input type="email" id="cfg-prof-email" placeholder="professor@email.com" autocomplete="off"></div>
             <div class="form-group"><label>Senha de acesso *</label><div class="senha-wrap"><input type="password" id="cfg-prof-senha" placeholder="Mínimo 6 caracteres"><button class="btn-olho" onclick="toggleOlho('cfg-prof-senha','olho-prof-senha')" id="olho-prof-senha">👁️</button></div></div>
-                       <div class="form-group"><label>Turmas responsável (opcional)</label></div>
-            <div id="cfg-prof-turmas-list" style="display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 4px;"></div>
-            <p style="font-size:10px;color:var(--sub);margin:-4px 0 4px;line-height:1.4;">Deixe todas desmarcadas para o professor ver todas as turmas. Marque turmas específicas para restringir o acesso.</p>
+                       <p style="font-size:10px;color:var(--sub);margin:-4px 0 12px;line-height:1.4;">O professor terá acesso a todas as turmas por padrão. Depois de cadastrado, use "✏️ Turmas" na lista abaixo para restringir o acesso a turmas específicas.</p>
             <div class="erro-msg" id="erro-prof"></div>
             <div class="sucesso-msg" id="sucesso-prof"></div>
             <button class="btn-salvar" style="font-size:12px;padding:10px;margin-bottom:16px;" onclick="salvarProfessor()">+ Adicionar Professor</button>
@@ -756,31 +754,6 @@ html[data-tema="black"] .toast{background:#222;}
           <div class="erro-msg" id="erro-suporte"></div>
           <div class="sucesso-msg" id="sucesso-suporte"></div>
           <button class="btn-salvar btn-vermelho" onclick="alterarNumeroSuporte()" style="font-size:12px;padding:10px">Salvar Número</button>
-        </div>
-      </div>
-
-      <div class="accordion-item" id="acc-lgpd" style="display:none">
-        <div class="accordion-header" onclick="toggleAccordion('acc-lgpd')">
-          <div class="accordion-header-left"><div class="accordion-icon">🛡️</div><div><div class="accordion-title">LGPD / Privacidade</div><div class="accordion-desc">Documentos e responsável pelos dados</div></div></div>
-          <div class="accordion-chevron">▼</div>
-        </div>
-        <div class="accordion-divider"></div>
-        <div class="accordion-body">
-          <p style="font-size:11px;color:var(--sub);margin:8px 0 12px;line-height:1.5;">Preencha o responsável pelo tratamento de dados (encarregado/DPO). Os documentos abaixo são modelos — a escola decide como e a quem apresentar, e recomenda-se revisão jurídica antes do uso oficial.</p>
-          <div class="form-group"><label>Nome do Encarregado (DPO)</label><input type="text" id="cfg-enc-nome" placeholder="Nome completo" autocomplete="off"></div>
-          <div class="form-row">
-            <div class="form-group"><label>E-mail de contato</label><input type="email" id="cfg-enc-email" placeholder="dpo@escola.com" autocomplete="off"></div>
-            <div class="form-group"><label>Telefone</label><input type="text" id="cfg-enc-tel" placeholder="(00) 00000-0000" autocomplete="off"></div>
-          </div>
-          <div class="erro-msg" id="erro-enc"></div>
-          <div class="sucesso-msg" id="sucesso-enc"></div>
-          <button class="btn-salvar" style="font-size:12px;padding:10px;margin-bottom:16px;" onclick="salvarEncarregado()">Salvar Responsável</button>
-          <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--cinza);border-radius:8px;border:1px solid var(--borda);">📄 Documentos para Download</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <button class="btn-salvar" style="font-size:12px;padding:10px;background:var(--azul2);color:#fff;" onclick="gerarAvisoPrivacidade()">📄 Aviso de Privacidade (LGPD)</button>
-            <button class="btn-salvar" style="font-size:12px;padding:10px;background:var(--azul2);color:#fff;" onclick="gerarTermoProfessor()">📄 Termo de Ciência do Professor</button>
-            <button class="btn-salvar" style="font-size:12px;padding:10px;background:var(--azul2);color:#fff;" onclick="gerarPoliticaRetencao()">📄 Política de Retenção de Dados</button>
-          </div>
         </div>
       </div>
 
@@ -927,7 +900,7 @@ html[data-tema="black"] .toast{background:#222;}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-import{getDatabase,ref,push,update,remove,onValue,get}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+import{getDatabase,ref,push,update,remove,onValue,get,query,limitToLast}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword,createUserWithEmailAndPassword}from"https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -968,10 +941,6 @@ function turmaCheckboxesHtml(prefix,selecionadas){
 }
 function getCheckedTurmas(prefix){
   return Array.prototype.slice.call(document.querySelectorAll('.'+prefix+'-chk:checked')).map(function(el){return el.value;});
-}
-function renderAddProfTurmasCheckboxes(){
-  var c=document.getElementById('cfg-prof-turmas-list');if(!c)return;
-  c.innerHTML=turmaCheckboxesHtml('cfg-prof-turmas',[]);
 }
 function registrarLog(acao,detalhes){
   push(logRef,{usuario:window._adminUsuario||'—',papel:window._papelUsuario||'—',acao,detalhes,timestamp:Date.now()}).catch(function(){});
@@ -1084,6 +1053,7 @@ onAuthStateChanged(auth,function(user){
   if(user){
     window._adminUsuario=user.email;
     document.getElementById('tela-login').classList.remove('show');
+    iniciarListenerPublico();
     var roleRef=ref(db,'roles/'+user.uid);
     window._roleUnsub=onValue(roleRef,async function(snap){
       var papel=snap.exists()?snap.val():'';
@@ -1129,12 +1099,6 @@ function iniciarListenerCabecalho(){
     var el=document.getElementById('banner-numero-display');if(el)el.textContent=fmt;
     var inp=document.getElementById('p-numero-suporte');if(inp&&document.activeElement!==inp)inp.value=d;
   });
-  onValue(ref(db,'admin_config/encarregado'),function(snap){
-    var e=snap.val()||{};window._encarregado=e;
-    var nI=document.getElementById('cfg-enc-nome');if(nI&&document.activeElement!==nI)nI.value=e.nome||'';
-    var eI=document.getElementById('cfg-enc-email');if(eI&&document.activeElement!==eI)eI.value=e.email||'';
-    var tI=document.getElementById('cfg-enc-tel');if(tI&&document.activeElement!==tI)tI.value=e.tel||'';
-  });
   onValue(evRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     window._eventos=l;renderCalendario();if(window._diaSel)renderOcsDia(window._diaSel);
@@ -1146,26 +1110,28 @@ function iniciarListenerCabecalho(){
         onValue(turmasRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.nome||'').localeCompare(b.nome||'');});
-    window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();renderAddProfTurmasCheckboxes();renderProfessoresConfig();
+    window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();renderProfessoresConfig();popularSeriesSel();
   });
     onValue(alunosRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.turma||'').localeCompare(b.turma||'')||(a.nome||'').localeCompare(b.nome||'');});
     window._alunos=l;renderAlunosConfig();popularSeriesSel();
   });
-      onValue(professoresRef,function(snap){
-    var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—',turmas:c.val().turmas||[]});});
-    window._professores=lista;renderProfessoresConfig();
-  });
-  onValue(importacoesRef,function(snap){
-    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-    l.sort(function(a,b){return(b.timestamp||0)-(a.timestamp||0);});
-    window._importacoes=l;renderImportacoesConfig();
-  });
-  onValue(query(logRef,limitToLast(50)),function(snap){
-    var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
-    window._logs=l;renderLog();
-  });
+      if(window._adminAtivo){
+    onValue(professoresRef,function(snap){
+      var lista=[];snap.forEach(function(c){lista.push({uid:c.key,email:c.val().email||'—',turmas:c.val().turmas||[]});});
+      window._professores=lista;renderProfessoresConfig();
+    });
+    onValue(importacoesRef,function(snap){
+      var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+      l.sort(function(a,b){return(b.timestamp||0)-(a.timestamp||0);});
+      window._importacoes=l;renderImportacoesConfig();
+    });
+    onValue(query(logRef,limitToLast(50)),function(snap){
+      var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
+      window._logs=l;renderLog();
+    });
+  }
   onValue(ref(db,'admin_config/categorias_ocorrencia'),function(snap){
     var val=snap.val();
     if(val&&typeof val==='object'){
@@ -1224,7 +1190,7 @@ window.salvarTurma=async function(){
     await update(newRef,{serie,nome,nivel,timestamp:novoTs});
     window._turmas=(window._turmas||[]).concat([{firebaseKey:newRef.key,serie,nome,nivel,timestamp:novoTs}])
       .sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.nome||'').localeCompare(b.nome||'');});
-    renderTurmasConfig();popularTurmasSelectAluno();renderAddProfTurmasCheckboxes();renderProfessoresConfig();
+    renderTurmasConfig();popularTurmasSelectAluno();renderProfessoresConfig();popularSeriesSel();
     document.getElementById('cfg-turma-serie').value='';document.getElementById('cfg-turma-nome').value='';
     suEl.textContent='✅ Turma adicionada!';suEl.classList.add('show');setTimeout(function(){suEl.classList.remove('show');},2500);
     mostrarToast('✓ Turma '+serie+' '+nome+' cadastrada! ('+nivelLabel(nivel)+')');
@@ -1239,7 +1205,6 @@ window.pedirExclusaoTurma=function(key){
 window.salvarProfessor=async function(){
   var email=(document.getElementById('cfg-prof-email').value||'').trim();
   var senha=(document.getElementById('cfg-prof-senha').value||'').trim();
-  var turmas=getCheckedTurmas('cfg-prof-turmas');
   var erEl=document.getElementById('erro-prof');var suEl=document.getElementById('sucesso-prof');
   erEl.classList.remove('show');suEl.classList.remove('show');
   if(!email){erEl.textContent='❌ Informe o e-mail do professor.';erEl.classList.add('show');return;}
@@ -1250,9 +1215,9 @@ window.salvarProfessor=async function(){
     var uid=cred.user.uid;
     await signOut(secondaryAuth);
     await update(ref(db,'roles'),{[uid]:'professor'});
-    await update(ref(db,'professores'),{[uid]:{email:email,turmas:turmas,criadoEm:Date.now()}});
-    document.getElementById('cfg-prof-email').value='';document.getElementById('cfg-prof-senha').value='';renderAddProfTurmasCheckboxes();
-    suEl.textContent='✅ Professor adicionado! Já pode entrar com o e-mail e a senha cadastrados.';suEl.classList.add('show');
+    await update(ref(db,'professores'),{[uid]:{email:email,turmas:[],criadoEm:Date.now()}});
+    document.getElementById('cfg-prof-email').value='';document.getElementById('cfg-prof-senha').value='';
+    suEl.textContent='✅ Professor adicionado! Use "✏️ Turmas" na lista abaixo para restringir o acesso, se necessário.';suEl.classList.add('show');
     setTimeout(function(){suEl.classList.remove('show');},4000);
     mostrarToast('✓ Professor cadastrado!');
   }catch(e){
@@ -1479,7 +1444,7 @@ window.setModoAluno=function(modo){
  var lm=document.getElementById('label-f-serie-manual');if(lm)lm.textContent=(window._terminologia==='serie'?'Série':'Ano')+' *';
   if(modo==='banco')popularSeriesSel();
 };
-function popularSeriesSel(){
+window.popularSeriesSel=function(){
   var nivel=document.getElementById('f-nivel-sel')?document.getElementById('f-nivel-sel').value:'';
   var pS=document.getElementById('banco-passo-serie');var sel=document.getElementById('f-serie-sel');if(!sel)return;
   document.getElementById('banco-passo-turma').style.display='none';
@@ -1487,19 +1452,21 @@ function popularSeriesSel(){
   document.getElementById('f-turma').value='';
   var lm=document.getElementById('label-f-serie-manual');if(lm)lm.textContent=(window._terminologia==='serie'?'Série':'Ano')+' *';
   if(!nivel){if(pS)pS.style.display='none';return;}
-  var alunos=filtrarPorTurmaProf(window._alunos||[]).filter(function(a){return(a.nivel||'fundamental')===nivel;});
-  var seriesUnicas=[...new Set(alunos.map(function(a){return a.serie||'';}).filter(Boolean))].sort(function(a,b){return(a||'').localeCompare(b||'',undefined,{numeric:true});});
+  // As opções de Ano/Série vêm do Banco de Turmas (não do Banco de Alunos), assim
+  // elas aparecem mesmo que a turma ainda não tenha nenhum aluno cadastrado.
+  var turmas=filtrarTurmasPorProf(window._turmas||[]).filter(function(t){return(t.nivel||'fundamental')===nivel;});
+  var seriesUnicas=[...new Set(turmas.map(function(t){return t.serie||'';}).filter(Boolean))].sort(function(a,b){return(a||'').localeCompare(b||'',undefined,{numeric:true});});
   var lblMin=(window._terminologia==='serie')?'série':'ano';
   sel.innerHTML='<option value="">— Selecione o '+lblMin+' —</option>'+
     seriesUnicas.map(function(s){return'<option value="'+he(s)+'">'+he(s)+'</option>';}).join('');
   if(pS)pS.style.display='';
-}
+};
 window.popularTurmasSel=function(){
   var nivel=document.getElementById('f-nivel-sel').value;var serie=document.getElementById('f-serie-sel').value;
   var pT=document.getElementById('banco-passo-turma');var pA=document.getElementById('banco-passo-aluno');
   pT.style.display='none';pA.style.display='none';document.getElementById('f-turma').value='';
   if(!serie)return;
-  var turmasUnicas=[...new Set(filtrarPorTurmaProf(window._alunos||[]).filter(function(a){return a.serie===serie&&(a.nivel||'fundamental')===nivel;}).map(function(a){return a.turma||'';}).filter(Boolean))].sort();
+  var turmasUnicas=[...new Set(filtrarTurmasPorProf(window._turmas||[]).filter(function(t){return t.serie===serie&&(t.nivel||'fundamental')===nivel;}).map(function(t){return t.nome||'';}).filter(Boolean))].sort();
   document.getElementById('f-turma-sel').innerHTML='<option value="">— Selecione a turma —</option>'+
     turmasUnicas.map(function(t){return'<option value="'+he(t)+'">Turma '+he(t)+'</option>';}).join('');
   pT.style.display='';
@@ -1512,7 +1479,7 @@ window.popularAlunosSel=function(){
   var selA=document.getElementById('f-aluno-sel');
   // Guarda série também no value: nome|turma|serie
   selA.innerHTML='<option value="">— Selecione o aluno —</option>'+
-    alunos.map(function(a){return'<option value="'+he(a.nome)+'|'+he(a.turma)+'|'+he(a.serie||'')+'">'+he(a.nome)+'</option>';}).join('');
+    (alunos.length?alunos.map(function(a){return'<option value="'+he(a.nome)+'|'+he(a.turma)+'|'+he(a.serie||'')+'">'+he(a.nome)+'</option>';}).join(''):'<option value="" disabled>Nenhum aluno cadastrado nesta turma</option>');
   selA.onchange=function(){
     var val=selA.value;
     if(val){var p=val.split('|');document.getElementById('f-turma').value=p[1]||'';}
@@ -1577,6 +1544,20 @@ window.alterarInstituicao=async function(){
   try{await update(ref(db,'admin_config'),{nome_instituicao:n});suEl.textContent='✅ Nome atualizado!';suEl.classList.add('show');document.getElementById('p-nome-inst').value='';mostrarToast('✓ Nome salvo!');}
   catch(e){erEl.textContent='❌ '+e.message;erEl.classList.add('show');}
 };
+window.alterarNumeroSuporte=async function(){
+  var raw=(document.getElementById('p-numero-suporte').value||'').trim();
+  var d=raw.replace(/\D/g,'');
+  var erEl=document.getElementById('erro-suporte');var suEl=document.getElementById('sucesso-suporte');
+  erEl.classList.remove('show');suEl.classList.remove('show');
+  if(!d){erEl.textContent='❌ Informe o número.';erEl.classList.add('show');return;}
+  if(d.length<10||d.length>11){erEl.textContent='❌ Número inválido. Use DDD + número (10 ou 11 dígitos).';erEl.classList.add('show');return;}
+  try{
+    await update(ref(db,'admin_config'),{numero_suporte:d});
+    suEl.textContent='✅ Número atualizado!';suEl.classList.add('show');
+    setTimeout(function(){suEl.classList.remove('show');},2500);
+    mostrarToast('✓ Número de suporte salvo!');
+  }catch(e){erEl.textContent='❌ '+e.message;erEl.classList.add('show');}
+};
 
 // ═══ FILA OFFLINE ═══
 var FILA_KEY='ceti_fila_offline';
@@ -1627,12 +1608,11 @@ function atualizarUiAdminConfig(){
   var logado=window._adminAtivo;
   document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
   document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
-  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-lgpd','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
+  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
    if(logado){
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
     document.getElementById('p-nome-inst').value=nAtual==='Minha Instituição'?'':nAtual;
-    renderAddProfTurmasCheckboxes();
   }
     document.getElementById('admin-banner').classList.toggle('show',logado);
   if(logado)document.getElementById('admin-user-badge').textContent=window._adminUsuario||'—';
@@ -1747,6 +1727,16 @@ function filtrarPorTurmaProf(lista){
   var set={};turmas.forEach(function(t){set[String(t).toUpperCase()]=true;});
   return lista.filter(function(o){
     var key=(String(o.serie||'')+'|'+String(o.turma||'')).toUpperCase();
+    return !!set[key];
+  });
+}
+function filtrarTurmasPorProf(lista){
+  if(window._adminAtivo)return lista;
+  var turmas=window._turmasProfessor;
+  if(!turmas||!turmas.length)return lista;
+  var set={};turmas.forEach(function(t){set[String(t).toUpperCase()]=true;});
+  return lista.filter(function(tu){
+    var key=(String(tu.serie||'')+'|'+String(tu.nome||'')).toUpperCase();
     return !!set[key];
   });
 }
@@ -2413,7 +2403,6 @@ window.confirmarImportacaoPDF=async function(){
 
 
 // ═══ INIT ═══
-iniciarListenerPublico();
 atualizarBannerFila();
 renderCalendario();
 carregarTerminologia();
