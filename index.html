@@ -483,7 +483,7 @@ html[data-tema="black"] .toast{background:#222;}
                 <div id="aluno-modo-banco">
           <div class="banco-step">
             <div class="banco-step-label"><span class="banco-step-num">1</span>Nível de Ensino</div>
-            <select id="f-nivel-sel" onchange="popularSeriesSel()"><option value="">— Selecione o nível —</option><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select>
+            <select id="f-nivel-sel" onchange="popularSeriesSel()"><option value="">— Selecione o nível —</option><option value="fundamental">Ensino Fundamental</option><option value="medio_integral">Ensino Médio Integral</option><option value="medio_noturno">Ensino Médio Noturno</option></select>
           </div>
           <div class="banco-step" id="banco-passo-serie" style="display:none;">
             <div class="banco-step-label"><span class="banco-step-num">2</span><span id="label-passo-serie">Ano</span></div>
@@ -643,7 +643,7 @@ html[data-tema="black"] .toast{background:#222;}
             <button class="btn-salvar btn-vermelho" style="font-size:12px;padding:10px;margin-bottom:16px;" onclick="abrirModalApagarAlunos()">🗑️ Apagar Todo o Banco de Alunos</button>
             <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Aluno (manual)</div>
                         <div class="form-group"><label>Nome do Aluno *</label><input type="text" id="cfg-aluno-nome" placeholder="Nome completo" style="text-transform:capitalize;" autocomplete="off"></div>
-            <div class="form-group"><label>Nível de Ensino *</label><select id="cfg-aluno-nivel" onchange="filtrarSeriesPorNivel()"><option value="">— Selecione —</option><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select></div>
+            <div class="form-group"><label>Nível de Ensino *</label><select id="cfg-aluno-nivel" onchange="filtrarSeriesPorNivel()"><option value="">— Selecione —</option><option value="fundamental">Ensino Fundamental</option><option value="medio_integral">Ensino Médio Integral</option><option value="medio_noturno">Ensino Médio Noturno</option></select></div>
             <div class="form-row">
               <div class="form-group"><label id="label-cfg-serie">Ano *</label><select id="cfg-aluno-serie" disabled style="opacity:.45;pointer-events:none;" onchange="filtrarTurmasPorSerie()"><option value="">— Selecione o nível primeiro —</option></select></div>
               <div class="form-group"><label>Turma *</label><select id="cfg-aluno-turma-sel" disabled style="opacity:.45;pointer-events:none;"><option value="">— Selecione o ano primeiro —</option></select></div>
@@ -688,7 +688,7 @@ html[data-tema="black"] .toast{background:#222;}
         <div class="accordion-body">
           <div style="margin-top:4px;">
                         <div style="font-size:10px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--azulc);border-radius:8px;border:1px solid var(--azul2);">➕ Adicionar Turma</div>
-            <div class="form-group"><label>Nível de Ensino *</label><select id="cfg-turma-nivel"><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select></div>
+            <div class="form-group"><label>Nível de Ensino *</label><select id="cfg-turma-nivel"><option value="fundamental">Ensino Fundamental</option><option value="medio_integral">Ensino Médio Integral</option><option value="medio_noturno">Ensino Médio Noturno</option></select></div>
             <div class="form-row">
               <div class="form-group"><label id="label-cfg-serie-turma">Ano/Série *</label><input type="text" id="cfg-turma-serie" placeholder="Ex: 6" autocomplete="off" inputmode="numeric"></div>
               <div class="form-group"><label>Turma *</label><input type="text" id="cfg-turma-nome" placeholder="Ex: A, B, C..." autocomplete="off"></div>
@@ -816,14 +816,6 @@ html[data-tema="black"] .toast{background:#222;}
     <div class="modal-handle"></div>
         <h3>📄 Importar Alunos do PDF</h3>
     <p id="import-pdf-status">Selecione um arquivo PDF de "Relação de Alunos".</p>
-    <div class="form-group" id="import-pdf-nivel-wrap" style="display:none;margin-bottom:10px;">
-      <label>Nível de Ensino deste PDF</label>
-      <select id="import-pdf-nivel-sel" onchange="atualizarNivelImportPDF()">
-        <option value="">— Confirme o nível deste PDF —</option>
-        <option value="fundamental">Ensino Fundamental</option>
-        <option value="medio">Ensino Médio</option>
-      </select>
-    </div>
     <div id="import-pdf-loading" style="display:none;text-align:center;padding:16px;"><div class="spinner"></div><div style="font-size:12px;color:var(--sub);margin-top:8px;">Lendo o PDF...</div></div>
     <div id="import-pdf-resumo" style="display:none;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
     <div id="import-pdf-acoes-topo" style="display:none;gap:8px;margin-bottom:10px;">
@@ -937,8 +929,33 @@ const secondaryAuth=getAuth(secondaryApp);
 
 window._adminAtivo=false;window._adminUsuario='';window._eventos=[];window._alunos=[];window._turmas=[];window._filtroStatus='todos';window._importacoes=[];
 function he(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function nivelOrdem(n){return n==='medio'?1:0;}
-function nivelLabel(n){return n==='medio'?'Ensino Médio':'Ensino Fundamental';}
+function nivelOrdem(n){
+  if(n==='medio_integral')return 1;
+  if(n==='medio_noturno')return 2;
+  return 0;
+}
+function nivelLabel(n){
+  if(n==='medio_integral')return'Ensino Médio Integral';
+  if(n==='medio_noturno')return'Ensino Médio Noturno';
+  if(n==='medio')return'Ensino Médio Integral';
+  return'Ensino Fundamental';
+}
+var _migTurmasFeita=false;
+function migrarTurmasNivelLegado(){
+  if(_migTurmasFeita)return;
+  var pendentes=(window._turmas||[]).filter(function(t){return t.nivel==='medio';});
+  if(!pendentes.length){_migTurmasFeita=true;return;}
+  var updates={};pendentes.forEach(function(t){updates[t.firebaseKey+'/nivel']='medio_integral';});
+  update(turmasRef,updates).then(function(){_migTurmasFeita=true;}).catch(function(){});
+}
+var _migAlunosFeita=false;
+function migrarAlunosNivelLegado(){
+  if(_migAlunosFeita)return;
+  var pendentes=(window._alunos||[]).filter(function(a){return a.nivel==='medio';});
+  if(!pendentes.length){_migAlunosFeita=true;return;}
+  var updates={};pendentes.forEach(function(a){updates[a.firebaseKey+'/nivel']='medio_integral';});
+  update(alunosRef,updates).then(function(){_migAlunosFeita=true;}).catch(function(){});
+}
 function turmaCheckboxesHtml(prefix,selecionadas){
   var turmas=(window._turmas||[]).slice().sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.nome||'').localeCompare(b.nome||'');});
   if(!turmas.length)return '<div class="alunos-vazio">Nenhuma turma cadastrada. Cadastre turmas em "Banco de Turmas" primeiro.</div>';
@@ -1126,15 +1143,17 @@ function iniciarListenerCabecalho(){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.reverse();window._ocs=l;renderLista();renderCalendario();renderChart();
   });
-        onValue(turmasRef,function(snap){
+                onValue(turmasRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.nome||'').localeCompare(b.nome||'');});
     window._turmas=l;renderTurmasConfig();popularTurmasSelectAluno();renderProfessoresConfig();popularSeriesSel();
+    if(window._adminAtivo)migrarTurmasNivelLegado();
   });
     onValue(alunosRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
     l.sort(function(a,b){return nivelOrdem(a.nivel)-nivelOrdem(b.nivel)||(a.serie||'').localeCompare(b.serie||'',undefined,{numeric:true})||(a.turma||'').localeCompare(b.turma||'')||(a.nome||'').localeCompare(b.nome||'');});
     window._alunos=l;renderAlunosConfig();popularSeriesSel();
+    if(window._adminAtivo)migrarAlunosNivelLegado();
   });
       if(window._adminAtivo){
     onValue(professoresRef,function(snap){
@@ -1310,7 +1329,9 @@ function renderTurmasConfig(){
     if(nv!==nivelAtual){nivelAtual=nv;serieAtual=null;html+='<div style="font-size:10px;font-weight:800;color:#fff;background:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 4px;padding:5px 10px;border-radius:6px;">'+nivelLabel(nv)+'</div>';}
     var s=tu.serie||'—';
     if(s!==serieAtual){serieAtual=s;html+='<div style="font-size:9px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px;">'+lbl+': '+s+'</div>';}
-    var nvAlvo=nv==='medio'?'fundamental':'medio';
+        var CICLO_NV=['fundamental','medio_integral','medio_noturno'];
+    var idxNv=CICLO_NV.indexOf(nv);if(idxNv===-1)idxNv=0;
+    var nvAlvo=CICLO_NV[(idxNv+1)%CICLO_NV.length];
     var btnMover=isAdmin?'<button class="btn-del-turma" onclick="moverNivelTurma(\''+tu.firebaseKey+'\')" title="Mover para '+nivelLabel(nvAlvo)+'">🔄</button>':'';
     var btnDel=isAdmin?'<button class="btn-del-turma" onclick="pedirExclusaoTurma(\''+tu.firebaseKey+'\')" title="Remover">✕</button>':'';
     html+='<div class="turma-config-item"><div><div class="turma-config-nome">Turma '+he(tu.nome)+'</div><div class="turma-config-sub">'+he(tu.serie||'—')+'</div></div><div style="display:flex;gap:4px;">'+btnMover+btnDel+'</div></div>';
@@ -1320,7 +1341,10 @@ function renderTurmasConfig(){
 window.moverNivelTurma=async function(key){
   if(!window._adminAtivo){mostrarToast('⚠️ Apenas admin pode mover');return;}
   var tu=(window._turmas||[]).find(function(t){return t.firebaseKey===key;});if(!tu)return;
-  var nivelAtual=tu.nivel||'fundamental';var nivelNovo=nivelAtual==='medio'?'fundamental':'medio';
+  var CICLO=['fundamental','medio_integral','medio_noturno'];
+  var nivelAtual=tu.nivel||'fundamental';
+  var idxAtual=CICLO.indexOf(nivelAtual);if(idxAtual===-1)idxAtual=0;
+  var nivelNovo=CICLO[(idxAtual+1)%CICLO.length];
   if(!confirm('Mover a turma '+tu.serie+' · '+tu.nome+' e todos os seus alunos de '+nivelLabel(nivelAtual)+' para '+nivelLabel(nivelNovo)+'?\n\nAtenção: se já existirem alunos iguais cadastrados em '+nivelLabel(nivelNovo)+', isso vai gerar duplicidade — confira antes de mover.'))return;
   try{
     await update(ref(db,'banco_turmas/'+key),{nivel:nivelNovo});
@@ -1460,7 +1484,7 @@ function renderAlunosConfig(){
     var tu=a.turma||'—';
     if(tu!==turmaAtual){turmaAtual=tu;html+='<div style="font-size:9px;font-weight:600;color:var(--sub);margin:4px 0 2px;padding-left:8px;">Turma '+he(tu)+'</div>';}
     var bA=isAdmin?'<div class="aluno-config-acoes"><button class="btn-editar-aluno" onclick="abrirEdicaoAluno(\''+a.firebaseKey+'\')">✏️ Editar</button><button class="btn-del-aluno" onclick="pedirExclusaoAluno(\''+a.firebaseKey+'\')" title="Remover">✕</button></div>':'';
-    var fE=isAdmin?'<div class="aluno-config-edit-form" data-edit-key="'+a.firebaseKey+'"><div class="aluno-edit-row"><input class="aluno-edit-input" id="edit-nome-'+a.firebaseKey+'" type="text" value="'+he(a.nome)+'" placeholder="Nome" style="grid-column:1/-1"></div><div class="aluno-edit-row"><select class="aluno-edit-input" id="edit-nivel-'+a.firebaseKey+'"><option value="fundamental"'+((a.nivel||'fundamental')==='fundamental'?' selected':'')+'>Ensino Fundamental</option><option value="medio"'+(a.nivel==='medio'?' selected':'')+'>Ensino Médio</option></select></div><div class="aluno-edit-row"><input class="aluno-edit-input" id="edit-serie-'+a.firebaseKey+'" type="text" value="'+he(a.serie||'')+'" placeholder="'+lbl+'"><input class="aluno-edit-input" id="edit-turma-'+a.firebaseKey+'" type="text" value="'+he(a.turma||'')+'" placeholder="Turma"></div><div class="aluno-edit-btns"><button class="btn-cancelar-aluno-edit" onclick="cancelarEdicaoAluno(\''+a.firebaseKey+'\')">Cancelar</button><button class="btn-salvar-aluno-edit" onclick="salvarEdicaoAluno(\''+a.firebaseKey+'\')">💾 Salvar</button></div></div>':'';
+    var fE=isAdmin?'<div class="aluno-config-edit-form" data-edit-key="'+a.firebaseKey+'"><div class="aluno-edit-row"><input class="aluno-edit-input" id="edit-nome-'+a.firebaseKey+'" type="text" value="'+he(a.nome)+'" placeholder="Nome" style="grid-column:1/-1"></div><div class="aluno-edit-row"><select class="aluno-edit-input" id="edit-nivel-'+a.firebaseKey+'"><option value="fundamental"'+((a.nivel||'fundamental')==='fundamental'?' selected':'')+'>Ensino Fundamental</option><option value="medio_integral"'+(a.nivel==='medio_integral'?' selected':'')+'>Ensino Médio Integral</option><option value="medio_noturno"'+(a.nivel==='medio_noturno'?' selected':'')+'>Ensino Médio Noturno</option></select></div><div class="aluno-edit-row"><input class="aluno-edit-input" id="edit-serie-'+a.firebaseKey+'" type="text" value="'+he(a.serie||'')+'" placeholder="'+lbl+'"><input class="aluno-edit-input" id="edit-turma-'+a.firebaseKey+'" type="text" value="'+he(a.turma||'')+'" placeholder="Turma"></div><div class="aluno-edit-btns"><button class="btn-cancelar-aluno-edit" onclick="cancelarEdicaoAluno(\''+a.firebaseKey+'\')">Cancelar</button><button class="btn-salvar-aluno-edit" onclick="salvarEdicaoAluno(\''+a.firebaseKey+'\')">💾 Salvar</button></div></div>':'';
     html+='<div class="aluno-config-item"><div class="aluno-config-main"><div><div class="aluno-config-nome">'+he(a.nome)+'</div><div class="aluno-config-sub">'+he(a.serie||'—')+' · Turma '+he(a.turma)+'</div></div>'+bA+'</div>'+fE+'</div>';
   });
   c.innerHTML=html;
@@ -2286,7 +2310,7 @@ function capitalizarNomeAluno(nome){
 async function extrairAlunosDoPDF(file){
   var buf=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  var linhaHeadRe=/(\d{1,2})\s+(ANO|S[EÉ]RIE)\s+(\d{2})\s+\S+\s*$/i;
+  var linhaHeadRe=/(\d{1,2})\s+(ANO|S[EÉ]RIE)\s+(\d{2})\s+(\S+)\s*$/i;
   var linhaRowRe=/^(\d{3})\s+(\S+)\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)\s*$/;
   var resultado=[];
   for(var p=1;p<=pdf.numPages;p++){
@@ -2307,7 +2331,13 @@ async function extrairAlunosDoPDF(file){
     var serieAtual=null,turmaAtual=null,nivelAtual=null;
     linhas.forEach(function(linha){
       var mHead=linhaHeadRe.exec(linha);
-      if(mHead){serieAtual=mHead[1]+'°';turmaAtual=mHead[3];nivelAtual=/^S[EÉ]RIE$/i.test(mHead[2])?'medio':'fundamental';return;}
+      if(mHead){
+        serieAtual=mHead[1]+'°';turmaAtual=mHead[3];
+        var ehMedio=/^S[EÉ]RIE$/i.test(mHead[2]);
+        var turnoTxt=(mHead[4]||'').toUpperCase();
+        nivelAtual=ehMedio?(/NOTURNO/.test(turnoTxt)?'medio_noturno':'medio_integral'):'fundamental';
+        return;
+      }
       var mRow=linhaRowRe.exec(linha);
       if(mRow&&serieAtual&&turmaAtual){
         var nome=mRow[3].trim();
@@ -2336,10 +2366,7 @@ window.processarPDFAlunos=async function(ev){
       document.getElementById('import-pdf-erro').classList.add('show');
       return;
     }
-    extraidos.forEach(function(a){a.nivel='';});
-    document.getElementById('import-pdf-nivel-sel').value='';
-    document.getElementById('import-pdf-nivel-wrap').style.display='block';
-       var existentes={};
+           var existentes={};
     (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')]=true;});
     extraidos.forEach(function(a){a._duplicado=!!existentes[a.nome.toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')];});
     window._alunosImportPDF=extraidos;
@@ -2355,8 +2382,10 @@ function renderChecklistImportPDF(){
   var lista=window._alunosImportPDF||[];
   var novos=lista.filter(function(a){return!a._duplicado;}).length;
   var dup=lista.length-novos;
-  var nivelAtualTxt=(lista.length&&lista[0].nivel)?nivelLabel(lista[0].nivel):'confirme o nível acima';
-  document.getElementById('import-pdf-status').textContent=lista.length+' aluno(s) encontrado(s) no PDF ('+nivelAtualTxt+').';
+  var porNivel={};
+  lista.forEach(function(a){var k=a.nivel||'fundamental';porNivel[k]=(porNivel[k]||0)+1;});
+  var resumoNivel=Object.keys(porNivel).map(function(k){return nivelLabel(k)+': '+porNivel[k];}).join(' · ');
+  document.getElementById('import-pdf-status').textContent=lista.length+' aluno(s) encontrado(s) no PDF ('+resumoNivel+').';
   document.getElementById('import-pdf-resumo').style.display='block';
   document.getElementById('import-pdf-resumo').innerHTML='✅ '+novos+' novo(s) · ⚠️ '+dup+' já cadastrado(s) (desmarcados) · Desmarque quem não deve entrar (ex: situação TRANS/REMAN).';
   document.getElementById('import-pdf-acoes-topo').style.display='flex';
@@ -2373,14 +2402,6 @@ function renderChecklistImportPDF(){
     '</label>';
   }).join('');
 }
-window.atualizarNivelImportPDF=function(){
-  var nivel=document.getElementById('import-pdf-nivel-sel').value;
-  (window._alunosImportPDF||[]).forEach(function(a){a.nivel=nivel;});
-  var existentes={};
-  (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')]=true;});
-  (window._alunosImportPDF||[]).forEach(function(a){a._duplicado=!!existentes[a.nome.toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')];});
-  renderChecklistImportPDF();
-};
 window.marcarTodosImportPDF=function(marcar){
   (window._alunosImportPDF||[]).forEach(function(a,idx){
     var chk=document.getElementById('imp-chk-'+idx);if(chk)chk.checked=marcar;
@@ -2388,11 +2409,8 @@ window.marcarTodosImportPDF=function(marcar){
 };
 window.fecharModalImportPDF=function(){
   document.getElementById('modal-import-pdf').classList.remove('show');window._alunosImportPDF=[];
-  document.getElementById('import-pdf-nivel-wrap').style.display='none';
 };
 window.confirmarImportacaoPDF=async function(){
-  var nivelEscolhido=document.getElementById('import-pdf-nivel-sel').value;
-  if(!nivelEscolhido){mostrarToast('⚠️ Confirme o Nível de Ensino deste PDF antes de cadastrar');return;}
   var lista=window._alunosImportPDF||[];
   var selecionados=lista.filter(function(a,idx){var chk=document.getElementById('imp-chk-'+idx);return chk&&chk.checked;});
   if(!selecionados.length){mostrarToast('⚠️ Nenhum aluno selecionado');return;}
