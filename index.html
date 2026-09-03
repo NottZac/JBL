@@ -743,21 +743,7 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
-      <div class="accordion-item" id="acc-suporte" style="display:none">
-        <div class="accordion-header" onclick="toggleAccordion('acc-suporte')">
-          <div class="accordion-header-left"><div class="accordion-icon">💬</div><div><div class="accordion-title">Contato de Suporte</div><div class="accordion-desc">Número exibido no banner de suporte</div></div></div>
-          <div class="accordion-chevron">▼</div>
-        </div>
-        <div class="accordion-divider"></div>
-        <div class="accordion-body">
-          <div class="form-group" style="margin-top:4px;"><label>Número WhatsApp (só números, com DDD)</label><input type="text" id="p-numero-suporte" placeholder="Ex: 92994810508" inputmode="numeric"></div>
-          <div class="erro-msg" id="erro-suporte"></div>
-          <div class="sucesso-msg" id="sucesso-suporte"></div>
-          <button class="btn-salvar btn-vermelho" onclick="alterarNumeroSuporte()" style="font-size:12px;padding:10px">Salvar Número</button>
-        </div>
-      </div>
-
-            <div class="accordion-item" id="acc-log" style="display:none">
+      <div class="accordion-item" id="acc-log" style="display:none">
         <div class="accordion-header" onclick="toggleAccordion('acc-log')">
           <div class="accordion-header-left"><div class="accordion-icon">🧾</div><div><div class="accordion-title">Log de Auditoria</div><div class="accordion-desc" id="acc-log-desc">Últimas ações em ocorrências</div></div></div>
           <div class="accordion-chevron">▼</div>
@@ -816,6 +802,7 @@ html[data-tema="black"] .toast{background:#222;}
     <div class="form-group" id="import-pdf-nivel-wrap" style="display:none;margin-bottom:10px;">
       <label>Nível de Ensino deste PDF</label>
       <select id="import-pdf-nivel-sel" onchange="atualizarNivelImportPDF()">
+        <option value="">— Confirme o nível deste PDF —</option>
         <option value="fundamental">Ensino Fundamental</option>
         <option value="medio">Ensino Médio</option>
       </select>
@@ -1057,6 +1044,13 @@ onAuthStateChanged(auth,function(user){
     var roleRef=ref(db,'roles/'+user.uid);
     window._roleUnsub=onValue(roleRef,async function(snap){
       var papel=snap.exists()?snap.val():'';
+      if(!papel){
+        signOut(auth);
+        var erLogin=document.getElementById('login-erro');
+        erLogin.textContent='❌ Este acesso foi removido pelo administrador.';
+        erLogin.classList.add('show');
+        return;
+      }
       window._papelUsuario=papel;
       window._adminAtivo=(papel==='admin');
       if(papel==='professor'){
@@ -1097,7 +1091,6 @@ function iniciarListenerCabecalho(){
     if(d.length===11)fmt='('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
     else if(d.length===10)fmt='('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
     var el=document.getElementById('banner-numero-display');if(el)el.textContent=fmt;
-    var inp=document.getElementById('p-numero-suporte');if(inp&&document.activeElement!==inp)inp.value=d;
   });
   onValue(evRef,function(snap){
     var l=[];snap.forEach(function(c){l.push(Object.assign({firebaseKey:c.key},c.val()));});
@@ -1291,11 +1284,28 @@ function renderTurmasConfig(){
     if(nv!==nivelAtual){nivelAtual=nv;serieAtual=null;html+='<div style="font-size:10px;font-weight:800;color:#fff;background:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 4px;padding:5px 10px;border-radius:6px;">'+nivelLabel(nv)+'</div>';}
     var s=tu.serie||'—';
     if(s!==serieAtual){serieAtual=s;html+='<div style="font-size:9px;font-weight:700;color:var(--azul2);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px;">'+lbl+': '+s+'</div>';}
+    var nvAlvo=nv==='medio'?'fundamental':'medio';
+    var btnMover=isAdmin?'<button class="btn-del-turma" onclick="moverNivelTurma(\''+tu.firebaseKey+'\')" title="Mover para '+nivelLabel(nvAlvo)+'">🔄</button>':'';
     var btnDel=isAdmin?'<button class="btn-del-turma" onclick="pedirExclusaoTurma(\''+tu.firebaseKey+'\')" title="Remover">✕</button>':'';
-    html+='<div class="turma-config-item"><div><div class="turma-config-nome">Turma '+he(tu.nome)+'</div><div class="turma-config-sub">'+he(tu.serie||'—')+'</div></div>'+btnDel+'</div>';
+    html+='<div class="turma-config-item"><div><div class="turma-config-nome">Turma '+he(tu.nome)+'</div><div class="turma-config-sub">'+he(tu.serie||'—')+'</div></div><div style="display:flex;gap:4px;">'+btnMover+btnDel+'</div></div>';
   });
   c.innerHTML=html;
 }
+window.moverNivelTurma=async function(key){
+  if(!window._adminAtivo){mostrarToast('⚠️ Apenas admin pode mover');return;}
+  var tu=(window._turmas||[]).find(function(t){return t.firebaseKey===key;});if(!tu)return;
+  var nivelAtual=tu.nivel||'fundamental';var nivelNovo=nivelAtual==='medio'?'fundamental':'medio';
+  if(!confirm('Mover a turma '+tu.serie+' · '+tu.nome+' e todos os seus alunos de '+nivelLabel(nivelAtual)+' para '+nivelLabel(nivelNovo)+'?\n\nAtenção: se já existirem alunos iguais cadastrados em '+nivelLabel(nivelNovo)+', isso vai gerar duplicidade — confira antes de mover.'))return;
+  try{
+    await update(ref(db,'banco_turmas/'+key),{nivel:nivelNovo});
+    var alunosDaTurma=(window._alunos||[]).filter(function(a){return a.serie===tu.serie&&a.turma===tu.nome&&(a.nivel||'fundamental')===nivelAtual;});
+    var updatesAlunos={};
+    alunosDaTurma.forEach(function(a){updatesAlunos[a.firebaseKey+'/nivel']=nivelNovo;});
+    if(Object.keys(updatesAlunos).length)await update(alunosRef,updatesAlunos);
+    registrarLog('Moveu turma de nível',tu.serie+' · '+tu.nome+' → '+nivelLabel(nivelNovo)+' ('+alunosDaTurma.length+' aluno(s))');
+    mostrarToast('✓ Turma e '+alunosDaTurma.length+' aluno(s) movidos para '+nivelLabel(nivelNovo)+'!');
+  }catch(e){mostrarToast('❌ Erro: '+e.message);}
+};
 function popularTurmasSelectAluno(){
   if(document.getElementById('cfg-aluno-nivel'))filtrarSeriesPorNivel();
 }
@@ -1544,20 +1554,6 @@ window.alterarInstituicao=async function(){
   try{await update(ref(db,'admin_config'),{nome_instituicao:n});suEl.textContent='✅ Nome atualizado!';suEl.classList.add('show');document.getElementById('p-nome-inst').value='';mostrarToast('✓ Nome salvo!');}
   catch(e){erEl.textContent='❌ '+e.message;erEl.classList.add('show');}
 };
-window.alterarNumeroSuporte=async function(){
-  var raw=(document.getElementById('p-numero-suporte').value||'').trim();
-  var d=raw.replace(/\D/g,'');
-  var erEl=document.getElementById('erro-suporte');var suEl=document.getElementById('sucesso-suporte');
-  erEl.classList.remove('show');suEl.classList.remove('show');
-  if(!d){erEl.textContent='❌ Informe o número.';erEl.classList.add('show');return;}
-  if(d.length<10||d.length>11){erEl.textContent='❌ Número inválido. Use DDD + número (10 ou 11 dígitos).';erEl.classList.add('show');return;}
-  try{
-    await update(ref(db,'admin_config'),{numero_suporte:d});
-    suEl.textContent='✅ Número atualizado!';suEl.classList.add('show');
-    setTimeout(function(){suEl.classList.remove('show');},2500);
-    mostrarToast('✓ Número de suporte salvo!');
-  }catch(e){erEl.textContent='❌ '+e.message;erEl.classList.add('show');}
-};
 
 // ═══ FILA OFFLINE ═══
 var FILA_KEY='ceti_fila_offline';
@@ -1608,7 +1604,7 @@ function atualizarUiAdminConfig(){
   var logado=window._adminAtivo;
   document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
   document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
-  ['acc-inst','acc-icone','acc-senha','acc-suporte','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
+  ['acc-inst','acc-icone','acc-senha','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
    if(logado){
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
@@ -2314,10 +2310,8 @@ window.processarPDFAlunos=async function(ev){
       document.getElementById('import-pdf-erro').classList.add('show');
       return;
     }
-    var qtdMedio=extraidos.filter(function(a){return a.nivel==='medio';}).length;
-    var nivelDetectado=qtdMedio>extraidos.length/2?'medio':'fundamental';
-    extraidos.forEach(function(a){a.nivel=nivelDetectado;});
-    document.getElementById('import-pdf-nivel-sel').value=nivelDetectado;
+    extraidos.forEach(function(a){a.nivel='';});
+    document.getElementById('import-pdf-nivel-sel').value='';
     document.getElementById('import-pdf-nivel-wrap').style.display='block';
        var existentes={};
     (window._alunos||[]).forEach(function(a){existentes[(a.nome||'').toLowerCase()+'|'+a.serie+'|'+a.turma+'|'+(a.nivel||'fundamental')]=true;});
@@ -2335,8 +2329,8 @@ function renderChecklistImportPDF(){
   var lista=window._alunosImportPDF||[];
   var novos=lista.filter(function(a){return!a._duplicado;}).length;
   var dup=lista.length-novos;
-  var nivelDetectado=lista.length?nivelLabel(lista[0].nivel):'';
-  document.getElementById('import-pdf-status').textContent=lista.length+' aluno(s) encontrado(s) no PDF ('+nivelDetectado+').';
+  var nivelAtualTxt=(lista.length&&lista[0].nivel)?nivelLabel(lista[0].nivel):'confirme o nível acima';
+  document.getElementById('import-pdf-status').textContent=lista.length+' aluno(s) encontrado(s) no PDF ('+nivelAtualTxt+').';
   document.getElementById('import-pdf-resumo').style.display='block';
   document.getElementById('import-pdf-resumo').innerHTML='✅ '+novos+' novo(s) · ⚠️ '+dup+' já cadastrado(s) (desmarcados) · Desmarque quem não deve entrar (ex: situação TRANS/REMAN).';
   document.getElementById('import-pdf-acoes-topo').style.display='flex';
@@ -2371,6 +2365,8 @@ window.fecharModalImportPDF=function(){
   document.getElementById('import-pdf-nivel-wrap').style.display='none';
 };
 window.confirmarImportacaoPDF=async function(){
+  var nivelEscolhido=document.getElementById('import-pdf-nivel-sel').value;
+  if(!nivelEscolhido){mostrarToast('⚠️ Confirme o Nível de Ensino deste PDF antes de cadastrar');return;}
   var lista=window._alunosImportPDF||[];
   var selecionados=lista.filter(function(a,idx){var chk=document.getElementById('imp-chk-'+idx);return chk&&chk.checked;});
   if(!selecionados.length){mostrarToast('⚠️ Nenhum aluno selecionado');return;}
