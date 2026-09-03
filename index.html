@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="manifest" href="/manifest.json">
-<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<link rel="manifest" href="manifest.json">
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+<link rel="icon" href="icons/icon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#2A5BD7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ocorrências JBL">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>E. E. Profº. José Bernardino Lindoso</title>
@@ -571,6 +577,17 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
+      <div class="accordion-item" id="acc-instalar">
+        <div class="accordion-header" onclick="toggleAccordion('acc-instalar')">
+          <div class="accordion-header-left"><div class="accordion-icon">📲</div><div><div class="accordion-title">Instalar App</div><div class="accordion-desc" id="acc-instalar-desc">Use no PC ou no celular como um aplicativo</div></div></div>
+          <div class="accordion-chevron">▼</div>
+        </div>
+        <div class="accordion-divider"></div>
+        <div class="accordion-body">
+          <div id="instalar-status" style="margin-top:4px;"></div>
+        </div>
+      </div>
+
       <div class="accordion-item" id="acc-terminologia">
         <div class="accordion-header" onclick="toggleAccordion('acc-terminologia')">
           <div class="accordion-header-left"><div class="accordion-icon">🏷️</div><div><div class="accordion-title">Terminologia Escolar</div><div class="accordion-desc" id="acc-terminologia-desc">Como sua escola chama: Ano ou Série?</div></div></div>
@@ -743,7 +760,7 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
-      <div class="accordion-item" id="acc-log" style="display:none">
+            <div class="accordion-item" id="acc-log" style="display:none">
         <div class="accordion-header" onclick="toggleAccordion('acc-log')">
           <div class="accordion-header-left"><div class="accordion-icon">🧾</div><div><div class="accordion-title">Log de Auditoria</div><div class="accordion-desc" id="acc-log-desc">Últimas ações em ocorrências</div></div></div>
           <div class="accordion-chevron">▼</div>
@@ -828,6 +845,14 @@ html[data-tema="black"] .toast{background:#222;}
     <h3>Ícone do App</h3><p>Escolha o ícone exibido no cabeçalho</p>
     <div id="emoji-grid-modal" class="emoji-grid"></div>
     <button class="btn-cancelar" style="width:100%;margin-top:14px" onclick="fecharModalIcone()">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-instalar-prompt">
+  <div class="modal"><div class="modal-handle"></div>
+    <h3>📲 Instalar o app</h3>
+    <p>Instale pra abrir direto da tela inicial, mais rápido e até offline. Pode desinstalar quando quiser.</p>
+    <div class="modal-btns"><button class="btn-cancelar" onclick="fecharPromptInstalar()">Agora não</button><button class="btn-confirmar-azul" onclick="instalarApp()">Instalar</button></div>
   </div>
 </div>
 
@@ -1063,6 +1088,7 @@ onAuthStateChanged(auth,function(user){
       }
       iniciarListenerCabecalho();
       renderLista();atualizarUiAdminConfig();renderAlunosConfig();renderTurmasConfig();
+      tentarMostrarPromptAutomatico();
     },function(erro){
       console.warn('Falha temporária ao ler papel do usuário, tentando novamente...',erro);
     });
@@ -1592,7 +1618,7 @@ window.mudarAba=function(aba){
   document.getElementById('btn-novo-global').style.display=(aba==='analytics'||aba==='config')?'none':'';
   if(aba==='lista')mostrarViewSemTabs('view-lista');
   else if(aba==='analytics'){mostrarViewSemTabs('view-analytics');renderCalendario();renderChart();}
-  else{mostrarViewSemTabs('view-config');atualizarUiAdminConfig();carregarNomeProfConfig();aplicarTema(localStorage.getItem('ceti_tema')||'claro');carregarTerminologia();}
+  else{mostrarViewSemTabs('view-config');atualizarUiAdminConfig();carregarNomeProfConfig();aplicarTema(localStorage.getItem('ceti_tema')||'claro');carregarTerminologia();atualizarUiInstalar();}
 };
 function mostrarViewSemTabs(id){
   ['view-lista','view-analytics','view-novo','view-editar','view-detalhe','view-config'].forEach(function(v){document.getElementById(v).classList.remove('active');});
@@ -2398,8 +2424,70 @@ window.confirmarImportacaoPDF=async function(){
 };
 
 
+// ═══ INSTALAR APP (PWA) ═══
+window._deferredInstallPrompt=null;
+function rodandoStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+function ehIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();
+  window._deferredInstallPrompt=e;
+  atualizarUiInstalar();
+  tentarMostrarPromptAutomatico();
+});
+window.addEventListener('appinstalled',function(){
+  window._deferredInstallPrompt=null;
+  atualizarUiInstalar();
+  mostrarToast('✓ App instalado!');
+});
+window.fecharPromptInstalar=function(){
+  document.getElementById('modal-instalar-prompt').classList.remove('show');
+  localStorage.setItem('jbl_pwa_prompt_mostrado','1');
+};
+window.instalarApp=async function(){
+  document.getElementById('modal-instalar-prompt').classList.remove('show');
+  if(!window._deferredInstallPrompt){mostrarToast('⚠️ Instalação não disponível neste navegador agora');return;}
+  window._deferredInstallPrompt.prompt();
+  try{await window._deferredInstallPrompt.userChoice;}catch(e){}
+  window._deferredInstallPrompt=null;
+  atualizarUiInstalar();
+};
+function tentarMostrarPromptAutomatico(){
+  if(rodandoStandalone())return;
+  if(document.getElementById('tela-login').classList.contains('show'))return;
+  if(localStorage.getItem('jbl_pwa_prompt_mostrado'))return;
+  if(!window._deferredInstallPrompt)return;
+  document.getElementById('modal-instalar-prompt').classList.add('show');
+  localStorage.setItem('jbl_pwa_prompt_mostrado','1');
+}
+function atualizarUiInstalar(){
+  var el=document.getElementById('instalar-status');if(!el)return;
+  var desc=document.getElementById('acc-instalar-desc');
+  if(rodandoStandalone()){
+    el.innerHTML='<div class="sucesso-msg show">✅ App já instalado neste dispositivo.</div>';
+    if(desc)desc.textContent='Já instalado neste dispositivo';
+    return;
+  }
+  if(ehIOS()){
+    el.innerHTML='<p style="font-size:12px;color:var(--sub);line-height:1.6;">No iPhone/iPad: toque no botão <b>Compartilhar</b> (□ com seta pra cima) na barra do Safari e depois em <b>"Adicionar à Tela de Início"</b>.</p>';
+    if(desc)desc.textContent='Disponível pelo Safari (Compartilhar → Adicionar à Tela de Início)';
+    return;
+  }
+  if(window._deferredInstallPrompt){
+    el.innerHTML='<button class="btn-salvar" style="font-size:12px;padding:10px;" onclick="instalarApp()">📲 Instalar App</button>';
+    if(desc)desc.textContent='Disponível pra instalar agora';
+    return;
+  }
+  el.innerHTML='<p style="font-size:12px;color:var(--sub);line-height:1.6;">Seu navegador ainda não liberou a instalação. Use Chrome, Edge ou Safari, ou tente recarregar a página.</p>';
+  if(desc)desc.textContent='Aguardando disponibilidade do navegador';
+}
+
 // ═══ INIT ═══
 atualizarBannerFila();
+atualizarUiInstalar();
 renderCalendario();
 carregarTerminologia();
 bindAutoGrau('cfg-turma-serie');
