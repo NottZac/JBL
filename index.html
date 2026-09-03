@@ -588,21 +588,6 @@ html[data-tema="black"] .toast{background:#222;}
         </div>
       </div>
 
-      <div class="accordion-item" id="acc-terminologia">
-        <div class="accordion-header" onclick="toggleAccordion('acc-terminologia')">
-          <div class="accordion-header-left"><div class="accordion-icon">🏷️</div><div><div class="accordion-title">Terminologia Escolar</div><div class="accordion-desc" id="acc-terminologia-desc">Como sua escola chama: Ano ou Série?</div></div></div>
-          <div class="accordion-chevron">▼</div>
-        </div>
-        <div class="accordion-divider"></div>
-        <div class="accordion-body">
-          <p style="font-size:12px;color:var(--sub);margin:8px 0 4px;line-height:1.5;">Escolha o termo usado na sua escola.</p>
-          <div class="terminologia-grid">
-            <div class="terminologia-opcao" id="term-op-ano" onclick="selecionarTerminologia('ano')"><span class="terminologia-check">✔</span><div class="terminologia-opcao-titulo">Ano</div><div class="terminologia-opcao-ex">Ex: 6° Ano, 7° Ano...</div></div>
-            <div class="terminologia-opcao" id="term-op-serie" onclick="selecionarTerminologia('serie')"><span class="terminologia-check">✔</span><div class="terminologia-opcao-titulo">Série</div><div class="terminologia-opcao-ex">Ex: 6° Série, 7° Série...</div></div>
-          </div>
-        </div>
-      </div>
-
       <div class="accordion-item" id="acc-nome">
         <div class="accordion-header" onclick="toggleAccordion('acc-nome')">
           <div class="accordion-header-left"><div class="accordion-icon">👤</div><div><div class="accordion-title">Meu Nome</div><div class="accordion-desc">Preenchido automaticamente ao registrar</div></div></div>
@@ -743,20 +728,6 @@ html[data-tema="black"] .toast{background:#222;}
             <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:7px 10px;background:var(--cinza);border-radius:8px;border:1px solid var(--borda);">📋 Categorias Cadastradas</div>
             <div id="cats-lista-config" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;"><div class="alunos-vazio">Carregando...</div></div>
           </div>
-        </div>
-      </div>
-
-      <div class="accordion-item" id="acc-senha" style="display:none">
-        <div class="accordion-header" onclick="toggleAccordion('acc-senha')">
-          <div class="accordion-header-left"><div class="accordion-icon">🔑</div><div><div class="accordion-title">Alterar Senha</div><div class="accordion-desc">Redefina a senha de administrador</div></div></div>
-          <div class="accordion-chevron">▼</div>
-        </div>
-        <div class="accordion-divider"></div>
-        <div class="accordion-body">
-          <div class="form-group" style="margin-top:4px;"><label>Nova Senha</label><div class="senha-wrap"><input type="password" id="p-senha-nova" placeholder="Mínimo 6 caracteres"><button class="btn-olho" onclick="toggleOlho('p-senha-nova','olho-nova')" id="olho-nova">👁️</button></div></div>
-          <div class="form-group"><label>Confirmar Nova Senha</label><div class="senha-wrap"><input type="password" id="p-senha-conf" placeholder="Repita"><button class="btn-olho" onclick="toggleOlho('p-senha-conf','olho-conf')" id="olho-conf">👁️</button></div></div>
-          <div class="erro-msg" id="painel-erro"></div><div class="sucesso-msg" id="painel-sucesso"></div>
-          <button class="btn-salvar btn-vermelho" onclick="alterarSenha()" style="font-size:12px;padding:10px">Salvar Senha</button>
         </div>
       </div>
 
@@ -1046,21 +1017,15 @@ function bindAutoGrau(inputId){
   });
 }
 
-// ═══ TERMINOLOGIA ═══
-var TERM_KEY='ceti_terminologia';
+// ═══ TERMINOLOGIA (fixa em "Ano") ═══
 window._terminologia='ano';
 
 function carregarTerminologia(){
-  var t=localStorage.getItem(TERM_KEY)||'ano';
-  window._terminologia=t;
-  aplicarTerminologia(t);
+  aplicarTerminologia('ano');
 }
 function aplicarTerminologia(t){
-  window._terminologia=t;
-  var lbl=t==='serie'?'Série':'Ano';var lblMin=t==='serie'?'série':'ano';
-  document.getElementById('term-op-ano').classList.toggle('selecionado',t==='ano');
-  document.getElementById('term-op-serie').classList.toggle('selecionado',t==='serie');
-  document.getElementById('acc-terminologia-desc').textContent='Usando: '+lbl;
+  window._terminologia='ano';
+  var lbl='Ano';var lblMin='ano';
   var el;
   el=document.getElementById('label-passo-serie');if(el)el.textContent=lbl;
   el=document.getElementById('label-cfg-serie');if(el)el.textContent=lbl+' *';
@@ -1070,10 +1035,6 @@ function aplicarTerminologia(t){
   if(sel&&sel.options[0])sel.options[0].text='— Selecione o '+lblMin+' —';
   popularSeriesSel();
 }
-window.selecionarTerminologia=function(t){
-  localStorage.setItem(TERM_KEY,t);aplicarTerminologia(t);
-  mostrarToast('✓ Terminologia salva: '+(t==='serie'?'Série':'Ano'));
-};
 
 // ═══ AUTH ═══
 window._papelUsuario='';
@@ -1175,15 +1136,9 @@ function iniciarListenerCabecalho(){
     if(val&&typeof val==='object'){
       var l=[];Object.keys(val).forEach(function(k){l.push({firebaseKey:k,nome:val[k].nome,ordem:val[k].ordem??999});});
       l.sort(function(a,b){return a.ordem-b.ordem;});
-      window._categorias=l;
-      var nomesSalvos=l.map(function(c){return c.nome.toLowerCase();});
-      var faltam=CATS_PADRAO.filter(function(n){return nomesSalvos.indexOf(n.toLowerCase())===-1;});
-      if(faltam.length>0&&window._adminAtivo){
-        migrarCategoriasPadrao(faltam,l.length);
-      }
+            window._categorias=l;
     }else{
       window._categorias=[];
-      if(window._adminAtivo)migrarCategoriasPadrao(CATS_PADRAO,0);
     }
     renderCategoriasConfig();
     popularSelectsTipo();
@@ -1654,7 +1609,7 @@ function atualizarUiAdminConfig(){
   var logado=window._adminAtivo;
   document.getElementById('acc-admin-desc').textContent=logado?'Administrador':'Professor(a)';
   document.getElementById('cfg-admin-nome').textContent=window._adminUsuario||'—';
-  ['acc-inst','acc-icone','acc-senha','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
+  ['acc-inst','acc-icone','acc-alunos','acc-turmas','acc-categorias','acc-professores','acc-log','acc-importacoes'].forEach(function(id){document.getElementById(id).style.display=logado?'':'none';});
    if(logado){
     popularEmojiGrid('emoji-grid-painel');
     var nAtual=document.getElementById('header-nome-inst').textContent;
@@ -1667,21 +1622,6 @@ function atualizarUiAdminConfig(){
 window.sairAdminConfig=async function(){
   try{await signOut(auth);mostrarToast('Você saiu da conta');document.getElementById('acc-admin').classList.remove('open');}
   catch(e){mostrarToast('Erro ao sair: '+e.message);}
-};
-window.alterarSenha=async function(){
-  var nova=document.getElementById('p-senha-nova').value;var conf=document.getElementById('p-senha-conf').value;
-  var erEl=document.getElementById('painel-erro');var suEl=document.getElementById('painel-sucesso');
-  erEl.classList.remove('show');suEl.classList.remove('show');
-  if(!nova||!conf){erEl.textContent='❌ Preencha os dois campos.';erEl.classList.add('show');return;}
-  if(nova.length<6){erEl.textContent='❌ Mínimo 6 caracteres.';erEl.classList.add('show');return;}
-  if(nova!==conf){erEl.textContent='❌ Senhas não coincidem.';erEl.classList.add('show');return;}
-  var user=auth.currentUser;if(!user){erEl.textContent='❌ Nenhum usuário autenticado.';erEl.classList.add('show');return;}
-  try{
-    await updatePassword(user,nova);suEl.textContent='✅ Senha alterada com sucesso!';suEl.classList.add('show');
-    document.getElementById('p-senha-nova').value='';document.getElementById('p-senha-conf').value='';mostrarToast('✓ Senha atualizada!');
-  }catch(e){
-    erEl.textContent=e.code==='auth/requires-recent-login'?'❌ Sessão expirada. Saia e entre novamente.':'❌ '+e.message;erEl.classList.add('show');
-  }
 };
 
 // ═══ SALVAR OCORRÊNCIA ═══
@@ -2179,14 +2119,6 @@ function renderChart(){
    // ═══ CATEGORIAS DE OCORRÊNCIA ═══
 var CATS_PADRAO=['Agressão verbal','Agressão física','Uso de celular','Desrespeito ao professor','Bagunça em sala','Bullying','Vandalismo','Faltou à aula (Gazetou)','Outros'];
 window._categorias=[];
-
-  async function migrarCategoriasPadrao(lista,ordemInicial){
-  for(var i=0;i<lista.length;i++){
-    try{
-      await push(ref(db,'admin_config/categorias_ocorrencia'),{nome:lista[i],ordem:ordemInicial+i,timestamp:Date.now()});
-    }catch(e){break;}
-  }
-}
   
 function popularSelectsTipo(){
   var extras=(window._categorias||[]).map(function(c){return c.nome;});
