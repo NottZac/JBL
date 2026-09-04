@@ -835,16 +835,27 @@ html[data-tema="black"] .toast{background:#222;}
 
 <div class="modal-bg" id="modal-relatorio">
   <div class="modal"><div class="modal-handle"></div>
-    <h3>📄 Gerar Relatório</h3><p>Selecione o período desejado</p>
+       <h3>📄 Gerar Relatório</h3><p id="rel-modo-desc">Selecione o período desejado</p>
     <div class="rel-atalhos">
-      <button class="rel-atalho-btn" id="rel-btn-dia" onclick="aplicarAtalhoRel('dia')">📅 Hoje<br><span id="rel-label-dia" style="font-weight:400;font-size:10px;opacity:.7">—</span></button>
-      <button class="rel-atalho-btn" id="rel-btn-semana" onclick="aplicarAtalhoRel('semana')">🗓️ Semana<br><span id="rel-label-semana" style="font-weight:400;font-size:10px;opacity:.7">Dom→Sáb</span></button>
-      <button class="rel-atalho-btn" id="rel-btn-mes" onclick="aplicarAtalhoRel('mes')">📆 Mês<br><span id="rel-label-mes" style="font-weight:400;font-size:10px;opacity:.7">—</span></button>
+      <button class="rel-atalho-btn ativo" id="rel-modo-periodo" onclick="setRelModo('periodo')">📅 Por Período</button>
+      <button class="rel-atalho-btn" id="rel-modo-aluno" onclick="setRelModo('aluno')">👤 Por Aluno</button>
     </div>
-    <div class="rel-datas-row">
-      <div class="form-group"><label>Data início</label><input type="date" id="rel-data-ini" onchange="limparAtalhosRel()"></div>
-      <div class="form-group"><label>Data fim</label><input type="date" id="rel-data-fim" onchange="limparAtalhosRel()"></div>
+    <div id="rel-periodo-wrap">
+      <div class="rel-atalhos">
+        <button class="rel-atalho-btn" id="rel-btn-dia" onclick="aplicarAtalhoRel('dia')">📅 Hoje<br><span id="rel-label-dia" style="font-weight:400;font-size:10px;opacity:.7">—</span></button>
+        <button class="rel-atalho-btn" id="rel-btn-semana" onclick="aplicarAtalhoRel('semana')">🗓️ Semana<br><span id="rel-label-semana" style="font-weight:400;font-size:10px;opacity:.7">Dom→Sáb</span></button>
+        <button class="rel-atalho-btn" id="rel-btn-mes" onclick="aplicarAtalhoRel('mes')">📆 Mês<br><span id="rel-label-mes" style="font-weight:400;font-size:10px;opacity:.7">—</span></button>
+      </div>
+      <div class="rel-datas-row">
+        <div class="form-group"><label>Data início</label><input type="date" id="rel-data-ini" onchange="limparAtalhosRel()"></div>
+        <div class="form-group"><label>Data fim</label><input type="date" id="rel-data-fim" onchange="limparAtalhosRel()"></div>
+      </div>
     </div>
+    <div id="rel-aluno-wrap" style="display:none;">
+      <div class="form-group"><label>Aluno *</label><select id="rel-aluno-sel"><option value="">— Selecione o aluno —</option></select></div>
+      <p style="font-size:11px;color:var(--sub);margin:-4px 0 12px;line-height:1.4;">Serão incluídas todas as ocorrências já registradas para o aluno selecionado, de qualquer data.</p>
+    </div>
+    <div class="erro-msg" id="rel-erro"></div>
     <div class="modal-btns"><button class="btn-cancelar" onclick="fecharModalRelatorio()">Cancelar</button><button class="btn-confirmar-azul" onclick="gerarRelatorio()">🖨️ Abrir para imprimir</button></div>
   </div>
 </div>
@@ -1930,7 +1941,26 @@ window.navCal=function(dir){
 
 // ═══ RELATÓRIO ═══
 var _relAtalhoAtivo=null;
+window._relModo='periodo';
+function popularSelectAlunoRelatorio(){
+  var sel=document.getElementById('rel-aluno-sel');if(!sel)return;
+  var nomes=[...new Set((window._ocs||[]).map(function(o){return o.aluno;}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+  var valAtual=sel.value;
+  sel.innerHTML='<option value="">— Selecione o aluno —</option>'+nomes.map(function(n){return'<option value="'+he(n)+'">'+he(n)+'</option>';}).join('');
+  if(valAtual&&nomes.indexOf(valAtual)!==-1)sel.value=valAtual;
+}
+window.setRelModo=function(modo){
+  window._relModo=modo;
+  document.getElementById('rel-modo-periodo').classList.toggle('ativo',modo==='periodo');
+  document.getElementById('rel-modo-aluno').classList.toggle('ativo',modo==='aluno');
+  document.getElementById('rel-periodo-wrap').style.display=modo==='periodo'?'':'none';
+  document.getElementById('rel-aluno-wrap').style.display=modo==='aluno'?'':'none';
+  document.getElementById('rel-modo-desc').textContent=modo==='periodo'?'Selecione o período desejado':'Selecione o aluno para ver o histórico completo';
+  document.getElementById('rel-erro').classList.remove('show');
+  if(modo==='aluno')popularSelectAlunoRelatorio();
+};
 window.abrirModalRelatorio=function(){
+  setRelModo('periodo');
   var hoje=new Date();
   document.getElementById('rel-label-dia').textContent=String(hoje.getDate()).padStart(2,'0')+'/'+String(hoje.getMonth()+1).padStart(2,'0')+'/'+hoje.getFullYear();
   var ds=hoje.getDay();var dom=new Date(hoje);dom.setDate(hoje.getDate()-ds);dom.setHours(0,0,0,0);
@@ -1962,17 +1992,27 @@ window.aplicarAtalhoRel=function(tipo){
 };
 window.limparAtalhosRel=function(){_relAtalhoAtivo=null;['dia','semana','mes'].forEach(function(k){document.getElementById('rel-btn-'+k).classList.remove('ativo');});};
 window.gerarRelatorio=function(){
-  var iniVal=document.getElementById('rel-data-ini').value;var fimVal=document.getElementById('rel-data-fim').value;
-  if(!iniVal||!fimVal){mostrarToast('⚠️ Selecione as datas de início e fim');return;}
-  var iniDate=new Date(iniVal+'T00:00:00');var fimDate=new Date(fimVal+'T23:59:59');
-  if(iniDate>fimDate){mostrarToast('⚠️ Data início maior que data fim');return;}
-  var ocsFil=(window._ocs||[]).filter(function(o){var d=parseDateBR(o.data);return d&&d>=iniDate&&d<=fimDate;});
-  if(!ocsFil.length){mostrarToast('⚠️ Nenhuma ocorrência neste período');return;}
   var fD=function(d){return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
-  var tits={dia:'Relatório do Dia — '+fD(iniDate),semana:'Relatório Semanal — '+fD(iniDate)+' a '+fD(fimDate),mes:'Relatório Mensal — '+MESES_BR[iniDate.getMonth()]+' '+iniDate.getFullYear()};
-  var titRel=tits[_relAtalhoAtivo]||('Relatório — '+fD(iniDate)+' a '+fD(fimDate));
+  var ocsFil,titRel;
+  if(window._relModo==='aluno'){
+    var alunoSel=(document.getElementById('rel-aluno-sel').value||'').trim();
+    var erElRel=document.getElementById('rel-erro');erElRel.classList.remove('show');
+    if(!alunoSel){erElRel.textContent='❌ Selecione o aluno.';erElRel.classList.add('show');return;}
+    ocsFil=(window._ocs||[]).filter(function(o){return o.aluno===alunoSel;}).sort(function(a,b){return(parseDateBR(a.data)||0)-(parseDateBR(b.data)||0);});
+    if(!ocsFil.length){erElRel.textContent='❌ Nenhuma ocorrência encontrada para este aluno.';erElRel.classList.add('show');return;}
+    titRel='Histórico de Ocorrências — '+alunoSel;
+  }else{
+    var iniVal=document.getElementById('rel-data-ini').value;var fimVal=document.getElementById('rel-data-fim').value;
+    if(!iniVal||!fimVal){mostrarToast('⚠️ Selecione as datas de início e fim');return;}
+    var iniDate=new Date(iniVal+'T00:00:00');var fimDate=new Date(fimVal+'T23:59:59');
+    if(iniDate>fimDate){mostrarToast('⚠️ Data início maior que data fim');return;}
+    ocsFil=(window._ocs||[]).filter(function(o){var d=parseDateBR(o.data);return d&&d>=iniDate&&d<=fimDate;});
+    if(!ocsFil.length){mostrarToast('⚠️ Nenhuma ocorrência neste período');return;}
+    var tits={dia:'Relatório do Dia — '+fD(iniDate),semana:'Relatório Semanal — '+fD(iniDate)+' a '+fD(fimDate),mes:'Relatório Mensal — '+MESES_BR[iniDate.getMonth()]+' '+iniDate.getFullYear()};
+    titRel=tits[_relAtalhoAtivo]||('Relatório — '+fD(iniDate)+' a '+fD(fimDate));
+  }
   fecharModalRelatorio();
-  var nomeInst=document.getElementById('header-nome-inst').textContent;var umDia=iniVal===fimVal;
+  var nomeInst=document.getElementById('header-nome-inst').textContent;var umDia=(window._relModo==='periodo')&&(iniVal===fimVal);
   var porData={};ocsFil.forEach(function(o){var k=o.data||'—';if(!porData[k])porData[k]=[];porData[k].push(o);});
   var datasOrd=Object.keys(porData).sort(function(a,b){return(parseDateBR(a)||0)-(parseDateBR(b)||0);});
   var cnt=0;
