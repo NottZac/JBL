@@ -851,8 +851,13 @@ html[data-tema="black"] .toast{background:#222;}
         <div class="form-group"><label>Data fim</label><input type="date" id="rel-data-fim" onchange="limparAtalhosRel()"></div>
       </div>
     </div>
-    <div id="rel-aluno-wrap" style="display:none;">
-      <div class="form-group"><label>Aluno *</label><select id="rel-aluno-sel"><option value="">— Selecione o aluno —</option></select></div>
+        <div id="rel-aluno-wrap" style="display:none;">
+      <div class="form-group"><label>Nível de Ensino *</label><select id="rel-aluno-nivel-sel" onchange="popularAlunoRelSeries()"><option value="">— Selecione o nível —</option><option value="fundamental">Ensino Fundamental</option><option value="medio_integral">Ensino Médio Integral</option><option value="medio_noturno">Ensino Médio Noturno</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Ano *</label><select id="rel-aluno-serie-sel" disabled style="opacity:.45;pointer-events:none;" onchange="popularAlunoRelTurmas()"><option value="">— Selecione o nível primeiro —</option></select></div>
+        <div class="form-group"><label>Turma *</label><select id="rel-aluno-turma-sel" disabled style="opacity:.45;pointer-events:none;" onchange="popularAlunoRelAlunos()"><option value="">— Selecione o ano primeiro —</option></select></div>
+      </div>
+      <div class="form-group"><label>Aluno *</label><select id="rel-aluno-sel" disabled style="opacity:.45;pointer-events:none;"><option value="">— Selecione a turma primeiro —</option></select></div>
       <p style="font-size:11px;color:var(--sub);margin:-4px 0 12px;line-height:1.4;">Serão incluídas todas as ocorrências já registradas para o aluno selecionado, de qualquer data.</p>
     </div>
     <div class="erro-msg" id="rel-erro"></div>
@@ -1942,13 +1947,33 @@ window.navCal=function(dir){
 // ═══ RELATÓRIO ═══
 var _relAtalhoAtivo=null;
 window._relModo='periodo';
-function popularSelectAlunoRelatorio(){
-  var sel=document.getElementById('rel-aluno-sel');if(!sel)return;
-  var nomes=[...new Set((window._ocs||[]).map(function(o){return o.aluno;}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
-  var valAtual=sel.value;
-  sel.innerHTML='<option value="">— Selecione o aluno —</option>'+nomes.map(function(n){return'<option value="'+he(n)+'">'+he(n)+'</option>';}).join('');
-  if(valAtual&&nomes.indexOf(valAtual)!==-1)sel.value=valAtual;
-}
+window.popularAlunoRelSeries=function(){
+  var nivel=document.getElementById('rel-aluno-nivel-sel').value;
+  var selS=document.getElementById('rel-aluno-serie-sel');var selT=document.getElementById('rel-aluno-turma-sel');var selA=document.getElementById('rel-aluno-sel');
+  selT.innerHTML='<option value="">— Selecione o ano primeiro —</option>';selT.disabled=true;selT.style.opacity='.45';selT.style.pointerEvents='none';
+  selA.innerHTML='<option value="">— Selecione a turma primeiro —</option>';selA.disabled=true;selA.style.opacity='.45';selA.style.pointerEvents='none';
+  if(!nivel){selS.innerHTML='<option value="">— Selecione o nível primeiro —</option>';selS.disabled=true;selS.style.opacity='.45';selS.style.pointerEvents='none';return;}
+  var series=[...new Set((window._alunos||[]).filter(function(a){return(a.nivel||'fundamental')===nivel;}).map(function(a){return a.serie;}).filter(Boolean))].sort(function(a,b){return(a||'').localeCompare(b||'',undefined,{numeric:true});});
+  selS.innerHTML='<option value="">— Selecione o ano —</option>'+series.map(function(s){return'<option value="'+he(s)+'">'+he(s)+'</option>';}).join('');
+  selS.disabled=false;selS.style.opacity='';selS.style.pointerEvents='';
+};
+window.popularAlunoRelTurmas=function(){
+  var nivel=document.getElementById('rel-aluno-nivel-sel').value;var serie=document.getElementById('rel-aluno-serie-sel').value;
+  var selT=document.getElementById('rel-aluno-turma-sel');var selA=document.getElementById('rel-aluno-sel');
+  selA.innerHTML='<option value="">— Selecione a turma primeiro —</option>';selA.disabled=true;selA.style.opacity='.45';selA.style.pointerEvents='none';
+  if(!serie){selT.innerHTML='<option value="">— Selecione o ano primeiro —</option>';selT.disabled=true;selT.style.opacity='.45';selT.style.pointerEvents='none';return;}
+  var turmas=[...new Set((window._alunos||[]).filter(function(a){return a.serie===serie&&(a.nivel||'fundamental')===nivel;}).map(function(a){return a.turma;}).filter(Boolean))].sort();
+  selT.innerHTML='<option value="">— Selecione a turma —</option>'+turmas.map(function(t){return'<option value="'+he(t)+'">Turma '+he(t)+'</option>';}).join('');
+  selT.disabled=false;selT.style.opacity='';selT.style.pointerEvents='';
+};
+window.popularAlunoRelAlunos=function(){
+  var nivel=document.getElementById('rel-aluno-nivel-sel').value;var serie=document.getElementById('rel-aluno-serie-sel').value;var turma=document.getElementById('rel-aluno-turma-sel').value;
+  var selA=document.getElementById('rel-aluno-sel');
+  if(!turma){selA.innerHTML='<option value="">— Selecione a turma primeiro —</option>';selA.disabled=true;selA.style.opacity='.45';selA.style.pointerEvents='none';return;}
+  var alunos=(window._alunos||[]).filter(function(a){return a.serie===serie&&a.turma===turma&&(a.nivel||'fundamental')===nivel;}).sort(function(a,b){return(a.nome||'').localeCompare(b.nome||'','pt-BR');});
+  selA.innerHTML='<option value="">— Selecione o aluno —</option>'+alunos.map(function(a){return'<option value="'+he(a.nome)+'">'+he(a.nome)+'</option>';}).join('');
+  selA.disabled=false;selA.style.opacity='';selA.style.pointerEvents='';
+};
 window.setRelModo=function(modo){
   window._relModo=modo;
   document.getElementById('rel-modo-periodo').classList.toggle('ativo',modo==='periodo');
@@ -1957,7 +1982,10 @@ window.setRelModo=function(modo){
   document.getElementById('rel-aluno-wrap').style.display=modo==='aluno'?'':'none';
   document.getElementById('rel-modo-desc').textContent=modo==='periodo'?'Selecione o período desejado':'Selecione o aluno para ver o histórico completo';
   document.getElementById('rel-erro').classList.remove('show');
-  if(modo==='aluno')popularSelectAlunoRelatorio();
+  if(modo==='aluno'){
+    document.getElementById('rel-aluno-nivel-sel').value='';
+    popularAlunoRelSeries();
+  }
 };
 window.abrirModalRelatorio=function(){
   setRelModo('periodo');
